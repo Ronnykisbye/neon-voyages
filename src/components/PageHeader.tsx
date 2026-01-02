@@ -8,6 +8,7 @@ interface PageHeaderProps {
   title: string;
   subtitle?: string;
   showBack?: boolean;
+  backTo?: string;
   className?: string;
 }
 
@@ -15,16 +16,20 @@ export function PageHeader({
   title,
   subtitle,
   showBack = true,
+  backTo = "/menu",
   className,
 }: PageHeaderProps) {
   const navigate = useNavigate();
 
+  const handleBack = () => {
+    navigate(backTo);
+  };
   return (
     <header className={cn("flex items-center gap-4 py-4", className)}>
       {showBack && (
         <button
-          onClick={() => navigate(-1)}
-          className="h-12 w-12 rounded-xl border border-border bg-card flex items-center justify-center text-foreground shadow-card hover:shadow-neon-primary hover:border-primary/50 transition-all active:scale-95"
+          onClick={handleBack}
+          className="h-12 w-12 rounded-xl border border-border bg-card flex items-center justify-center text-foreground shadow-card hover:shadow-neon-primary hover:border-primary/50 transition-all active:scale-95 cursor-pointer"
           aria-label="Tilbage"
         >
           <ArrowLeft className="h-5 w-5" />
