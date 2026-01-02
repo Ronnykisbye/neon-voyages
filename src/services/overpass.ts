@@ -1,6 +1,6 @@
 // Overpass API service with fallback endpoints and caching
 
-const OVERPASS_ENDPOINTS = [
+export const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
   "https://overpass.nchc.org.tw/api/interpreter",
@@ -26,33 +26,49 @@ interface CacheEntry {
   timestamp: number;
 }
 
-function getCacheKey(lat: number, lon: number, category: string): string {
+export function getCacheKey(lat: number, lon: number, category: string): string {
   return `overpass_${category}_${lat.toFixed(3)}_${lon.toFixed(3)}`;
 }
 
-function getFromCache(key: string): OverpassElement[] | null {
+export function getFromCache<T = OverpassElement[]>(key: string): T | null {
   try {
     const cached = localStorage.getItem(key);
     if (!cached) return null;
     
-    const entry: CacheEntry = JSON.parse(cached);
+    const entry = JSON.parse(cached);
     if (Date.now() - entry.timestamp > CACHE_DURATION_MS) {
       localStorage.removeItem(key);
       return null;
     }
-    return entry.data;
+    return entry.data as T;
   } catch {
     return null;
   }
 }
 
-function saveToCache(key: string, data: OverpassElement[]): void {
+export function setCache<T>(key: string, data: T): void {
   try {
-    const entry: CacheEntry = { data, timestamp: Date.now() };
+    const entry = { data, timestamp: Date.now() };
     localStorage.setItem(key, JSON.stringify(entry));
   } catch {
     // localStorage full or unavailable
   }
+}
+
+export async function fetchWithFallback(endpoints: string[], query: string): Promise<Response> {
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        body: `data=${encodeURIComponent(query)}`,
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
+      if (response.ok) return response;
+    } catch {
+      continue;
+    }
+  }
+  return new Response(null, { status: 503 });
 }
 
 async function fetchWithTimeout(
@@ -341,12 +357,12 @@ export async function fetchAttractions(
     if (!largerResult.error && largerResult.data) {
       attractions = parseAttractions(largerResult.data);
       // Cache the larger result
-      saveToCache(cacheKey, largerResult.data);
+      setCache(cacheKey, largerResult.data);
     }
   } else if (result.data) {
-    saveToCache(cacheKey, result.data);
+    setCache(cacheKey, result.data);
   }
-  
+
   return { data: attractions, error: null, radiusUsed: radius };
 }
 

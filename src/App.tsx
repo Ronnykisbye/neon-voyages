@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { TripProvider } from "@/context/TripContext";
 import Index from "./pages/Index";
 import Menu from "./pages/Menu";
 import Weather from "./pages/Weather";
@@ -21,25 +22,27 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/menu" element={<Menu />} />
-            <Route path="/weather" element={<Weather />} />
-            <Route path="/tourist-spots" element={<TouristSpots />} />
-            <Route path="/hidden-gems" element={<HiddenGems />} />
-            <Route path="/food" element={<Food />} />
-            <Route path="/events" element={<Events />} />
-            <Route path="/markets" element={<Markets />} />
-            <Route path="/transport" element={<Transport />} />
-            <Route path="/help" element={<Help />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <TripProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/menu" element={<Menu />} />
+              <Route path="/weather" element={<Weather />} />
+              <Route path="/tourist-spots" element={<TouristSpots />} />
+              <Route path="/hidden-gems" element={<HiddenGems />} />
+              <Route path="/food" element={<Food />} />
+              <Route path="/events" element={<Events />} />
+              <Route path="/markets" element={<Markets />} />
+              <Route path="/transport" element={<Transport />} />
+              <Route path="/help" element={<Help />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </TripProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );
