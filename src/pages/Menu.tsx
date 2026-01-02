@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React from "react";
 import { format } from "date-fns";
 import { da } from "date-fns/locale";
 import {
@@ -17,7 +16,9 @@ import {
 import { PageHeader } from "@/components/PageHeader";
 import { MenuButton } from "@/components/MenuButton";
 import { NeonCard } from "@/components/ui/NeonCard";
-import { loadTripData, type TripData } from "@/services/storage";
+import { TripGuard } from "@/components/TripGuard";
+import { TripDebug } from "@/components/TripDebug";
+import { useTrip } from "@/context/TripContext";
 
 const menuItems = [
   {
@@ -78,27 +79,13 @@ const menuItems = [
   },
 ];
 
-export default function Menu() {
-  const navigate = useNavigate();
-  const [tripData, setTripData] = useState<TripData | null>(null);
-
-  useEffect(() => {
-    const data = loadTripData();
-    if (!data.destination || !data.startDate || !data.endDate) {
-      navigate("/");
-      return;
-    }
-    setTripData(data);
-  }, [navigate]);
-
-  if (!tripData) {
-    return null;
-  }
+function MenuContent() {
+  const { trip } = useTrip();
 
   const dateRange =
-    tripData.startDate && tripData.endDate
-      ? `${format(tripData.startDate, "d. MMM", { locale: da })} - ${format(
-          tripData.endDate,
+    trip.startDate && trip.endDate
+      ? `${format(trip.startDate, "d. MMM", { locale: da })} - ${format(
+          trip.endDate,
           "d. MMM yyyy",
           { locale: da }
         )}`
@@ -106,7 +93,7 @@ export default function Menu() {
 
   return (
     <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
-      <PageHeader title="Ung Rejse" showBack={true} />
+      <PageHeader title="Ung Rejse" showBack={true} backTo="/" />
 
       {/* Trip Summary */}
       <NeonCard variant="glow" className="mb-6">
@@ -116,14 +103,14 @@ export default function Menu() {
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-foreground truncate">
-              {tripData.destination}
+              {trip.destination}
             </h2>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Calendar className="h-4 w-4" />
               <span>{dateRange}</span>
               <span>•</span>
               <span>
-                {tripData.days} {tripData.days === 1 ? "dag" : "dage"}
+                {trip.days} {trip.days === 1 ? "dag" : "dage"}
               </span>
             </div>
           </div>
@@ -146,6 +133,16 @@ export default function Menu() {
           />
         ))}
       </main>
+
+      <TripDebug />
     </div>
+  );
+}
+
+export default function Menu() {
+  return (
+    <TripGuard>
+      <MenuContent />
+    </TripGuard>
   );
 }

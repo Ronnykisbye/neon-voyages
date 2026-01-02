@@ -1,14 +1,15 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Utensils, Coffee, Sun, Moon, ExternalLink } from "lucide-react";
+import React, { useState, useCallback } from "react";
+import { Utensils, Coffee, Sun, Moon, ExternalLink, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { NeonCard } from "@/components/ui/NeonCard";
 import { NeonButton } from "@/components/ui/NeonButton";
-import { ApiKeyNotice } from "@/components/ApiKeyNotice";
-import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ResultCard } from "@/components/ResultCard";
-import { loadTripData, type TripData } from "@/services/storage";
+import { AttractionSkeleton } from "@/components/AttractionSkeleton";
+import { TripGuard } from "@/components/TripGuard";
+import { TripDebug } from "@/components/TripDebug";
+import { useTrip } from "@/context/TripContext";
 import { getGoogleMapsUrl } from "@/services/geocoding";
+import { fetchWithFallback, OVERPASS_ENDPOINTS, getCacheKey, getFromCache, setCache } from "@/services/overpass";
 
 type MealType = "breakfast" | "lunch" | "dinner" | null;
 
@@ -25,88 +26,109 @@ const mealCategories = {
   breakfast: {
     icon: <Coffee className="h-5 w-5" />,
     label: "Morgenmad",
-    query: 'node["amenity"="cafe"](around:RADIUS,LAT,LON);node["cuisine"~"breakfast|bakery"](around:RADIUS,LAT,LON);',
+    tags: `
+      node["amenity"="cafe"](around:RADIUS,LAT,LON);
+      node["cuisine"~"breakfast|bakery"](around:RADIUS,LAT,LON);
+      node["shop"="bakery"](around:RADIUS,LAT,LON);
+    `,
   },
   lunch: {
     icon: <Sun className="h-5 w-5" />,
     label: "Frokost",
-    query: 'node["amenity"="restaurant"](around:RADIUS,LAT,LON);node["amenity"="fast_food"](around:RADIUS,LAT,LON);',
+    tags: `
+      node["amenity"="restaurant"](around:RADIUS,LAT,LON);
+      node["amenity"="fast_food"](around:RADIUS,LAT,LON);
+      node["amenity"="food_court"](around:RADIUS,LAT,LON);
+    `,
   },
   dinner: {
     icon: <Moon className="h-5 w-5" />,
     label: "Aftensmad",
-    query: 'node["amenity"="restaurant"](around:RADIUS,LAT,LON);',
+    tags: `
+      node["amenity"="restaurant"](around:RADIUS,LAT,LON);
+      node["amenity"="pub"](around:RADIUS,LAT,LON);
+    `,
   },
 };
 
-export default function Food() {
-  const navigate = useNavigate();
-  const [tripData, setTripData] = useState<TripData | null>(null);
+function FoodContent() {
+  const { trip } = useTrip();
   const [mealType, setMealType] = useState<MealType>(null);
   const [places, setPlaces] = useState<FoodPlace[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const data = loadTripData();
-    if (!data.destination || !data.location) {
-      navigate("/");
-      return;
-    }
-    setTripData(data);
-  }, [navigate]);
-
-  const fetchPlaces = async (meal: MealType) => {
-    if (!tripData?.location || !meal) return;
+  const fetchPlaces = useCallback(async (meal: MealType) => {
+    if (!trip.location || !meal) return;
 
     setLoading(true);
     setError(null);
 
-    try {
-      const radius = 5000;
-      const queryTemplate = mealCategories[meal].query
-        .replace(/RADIUS/g, String(radius))
-        .replace(/LAT/g, String(tripData.location.lat))
-        .replace(/LON/g, String(tripData.location.lon));
-
-      const query = `
-        [out:json][timeout:25];
-        (
-          ${queryTemplate}
-        );
-        out 15;
-      `;
-
-      const response = await fetch("https://overpass-api.de/api/interpreter", {
-        method: "POST",
-        body: query,
-      });
-
-      if (!response.ok) {
-        throw new Error("Kunne ikke hente spisesteder");
-      }
-
-      const json = await response.json();
-      const results: FoodPlace[] = json.elements
-        .filter((el: any) => el.tags?.name)
-        .slice(0, 12)
-        .map((el: any) => ({
-          id: String(el.id),
-          name: el.tags.name,
-          cuisine: el.tags.cuisine,
-          lat: el.lat,
-          lon: el.lon,
-          category: el.tags.amenity || el.tags.shop,
-        }));
-
-      setPlaces(results);
-    } catch (err) {
-      console.error("Error fetching food places:", err);
-      setError(err instanceof Error ? err.message : "Ukendt fejl");
-    } finally {
+    const { lat, lon } = trip.location;
+    const cacheKey = getCacheKey(lat, lon, `food-${meal}`);
+    
+    // Check cache first
+    const cached = getFromCache<FoodPlace[]>(cacheKey);
+    if (cached) {
+      setPlaces(cached);
       setLoading(false);
+      return;
     }
-  };
+
+    // Try with increasing radius: 3km, 6km, 10km
+    const radiusSteps = [3000, 6000, 10000];
+    
+    for (const radius of radiusSteps) {
+      try {
+        const queryTags = mealCategories[meal].tags
+          .replace(/RADIUS/g, String(radius))
+          .replace(/LAT/g, String(lat))
+          .replace(/LON/g, String(lon));
+
+        const query = `
+          [out:json][timeout:25];
+          (
+            ${queryTags}
+          );
+          out 40;
+        `;
+
+        const response = await fetchWithFallback(OVERPASS_ENDPOINTS, query);
+
+        if (!response.ok) {
+          if (response.status === 429 || response.status === 504) {
+            continue;
+          }
+          throw new Error("Kunne ikke hente spisesteder");
+        }
+
+        const json = await response.json();
+        const results: FoodPlace[] = json.elements
+          .filter((el: any) => el.tags?.name)
+          .slice(0, 20)
+          .map((el: any) => ({
+            id: String(el.id),
+            name: el.tags.name,
+            cuisine: el.tags.cuisine,
+            lat: el.lat,
+            lon: el.lon,
+            category: el.tags.amenity || el.tags.shop || "Spisested",
+          }));
+
+        if (results.length >= 5 || radius === radiusSteps[radiusSteps.length - 1]) {
+          setPlaces(results);
+          setCache(cacheKey, results);
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.error(`Error with radius ${radius}:`, err);
+      }
+    }
+
+    setError("Overpass er travl lige nu – prøv igen om lidt");
+    setLoading(false);
+  }, [trip.location]);
 
   const handleMealSelect = (meal: MealType) => {
     setMealType(meal);
@@ -115,11 +137,15 @@ export default function Food() {
     }
   };
 
-  if (!tripData) return null;
+  const handleRetry = () => {
+    if (mealType) {
+      fetchPlaces(mealType);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
-      <PageHeader title="Spisesteder" subtitle={tripData.destination} />
+      <PageHeader title="Spisesteder" subtitle={trip.destination} />
 
       <main className="flex-1 space-y-4 pb-6">
         {/* Meal Type Selection */}
@@ -150,14 +176,27 @@ export default function Food() {
         )}
 
         {loading && (
-          <div className="flex items-center justify-center py-12">
-            <LoadingSpinner text="Finder spisesteder..." />
+          <div className="space-y-4">
+            {[1, 2, 3, 4].map((i) => (
+              <AttractionSkeleton key={i} />
+            ))}
           </div>
         )}
 
-        {error && (
+        {!loading && error && (
           <NeonCard variant="accent" className="border-destructive/30">
-            <p className="text-destructive">{error}</p>
+            <div className="flex flex-col items-center gap-4 py-4">
+              <p className="text-destructive text-center">{error}</p>
+              <NeonButton
+                variant="outline"
+                size="sm"
+                onClick={handleRetry}
+                className="gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Prøv igen
+              </NeonButton>
+            </div>
           </NeonCard>
         )}
 
@@ -178,37 +217,51 @@ export default function Food() {
 
         {!loading && !error && mealType && places.length === 0 && (
           <NeonCard>
-            <p className="text-muted-foreground text-center">
-              Ingen spisesteder fundet for {mealCategories[mealType].label.toLowerCase()}.
-            </p>
+            <div className="flex flex-col items-center gap-4 py-6">
+              <Utensils className="h-12 w-12 text-muted-foreground" />
+              <p className="text-muted-foreground text-center">
+                Ingen spisesteder fundet for {mealCategories[mealType].label.toLowerCase()}.
+              </p>
+              <NeonButton
+                variant="outline"
+                size="sm"
+                onClick={handleRetry}
+                className="gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Prøv igen
+              </NeonButton>
+            </div>
           </NeonCard>
         )}
 
         {mealType && (
-          <>
-            <NeonCard padding="sm">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Kilder</span>
-                <a
-                  href="https://www.openstreetmap.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  OpenStreetMap
-                </a>
-              </div>
-            </NeonCard>
-
-            <ApiKeyNotice
-              apiName="Google Places API"
-              description="For flere resultater med billeder, åbningstider og anmeldelser."
-              documentationUrl="https://developers.google.com/maps/documentation/places/web-service"
-            />
-          </>
+          <NeonCard padding="sm">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Kilder</span>
+              <a
+                href="https://www.openstreetmap.org/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                OpenStreetMap
+              </a>
+            </div>
+          </NeonCard>
         )}
       </main>
+
+      <TripDebug />
     </div>
+  );
+}
+
+export default function Food() {
+  return (
+    <TripGuard>
+      <FoodContent />
+    </TripGuard>
   );
 }

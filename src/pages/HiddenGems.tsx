@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Sparkles, ExternalLink } from "lucide-react";
+import React, { useEffect, useState, useCallback } from "react";
+import { Sparkles, ExternalLink, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { NeonCard } from "@/components/ui/NeonCard";
-import { ApiKeyNotice } from "@/components/ApiKeyNotice";
-import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { NeonButton } from "@/components/ui/NeonButton";
 import { ResultCard } from "@/components/ResultCard";
-import { loadTripData, type TripData } from "@/services/storage";
+import { AttractionSkeleton } from "@/components/AttractionSkeleton";
+import { TripGuard } from "@/components/TripGuard";
+import { TripDebug } from "@/components/TripDebug";
+import { useTrip } from "@/context/TripContext";
 import { getGoogleMapsUrl } from "@/services/geocoding";
+import { fetchWithFallback, OVERPASS_ENDPOINTS, getCacheKey, getFromCache, setCache } from "@/services/overpass";
 
 interface HiddenGem {
   id: string;
@@ -18,103 +20,138 @@ interface HiddenGem {
   category?: string;
 }
 
-export default function HiddenGems() {
-  const navigate = useNavigate();
-  const [tripData, setTripData] = useState<TripData | null>(null);
+function HiddenGemsContent() {
+  const { trip } = useTrip();
   const [gems, setGems] = useState<HiddenGem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [radiusUsed, setRadiusUsed] = useState<number>(15000);
 
-  useEffect(() => {
-    const data = loadTripData();
-    if (!data.destination || !data.location) {
-      navigate("/");
-      return;
-    }
-    setTripData(data);
-    fetchGems(data);
-  }, [navigate]);
-
-  const fetchGems = async (data: TripData) => {
-    if (!data.location) {
+  const fetchGems = useCallback(async () => {
+    if (!trip.location) {
       setError("Ingen lokation fundet");
       setLoading(false);
       return;
     }
 
-    try {
-      // Look for viewpoints, artwork, and less common attractions
-      const radius = 15000; // 15km radius
-      const query = `
-        [out:json][timeout:25];
-        (
-          node["tourism"="viewpoint"](around:${radius},${data.location.lat},${data.location.lon});
-          node["tourism"="artwork"](around:${radius},${data.location.lat},${data.location.lon});
-          node["natural"="cave_entrance"](around:${radius},${data.location.lat},${data.location.lon});
-          node["leisure"="garden"](around:${radius},${data.location.lat},${data.location.lon});
-          node["historic"="ruins"](around:${radius},${data.location.lat},${data.location.lon});
-          node["natural"="spring"](around:${radius},${data.location.lat},${data.location.lon});
-        );
-        out 15;
-      `;
+    setLoading(true);
+    setError(null);
 
-      const response = await fetch("https://overpass-api.de/api/interpreter", {
-        method: "POST",
-        body: query,
-      });
-
-      if (!response.ok) {
-        throw new Error("Kunne ikke hente skjulte perler");
-      }
-
-      const json = await response.json();
-      const results: HiddenGem[] = json.elements
-        .filter((el: any) => el.tags?.name)
-        .slice(0, 12)
-        .map((el: any) => ({
-          id: String(el.id),
-          name: el.tags.name,
-          description: el.tags.description,
-          lat: el.lat,
-          lon: el.lon,
-          category:
-            el.tags.tourism ||
-            el.tags.natural ||
-            el.tags.leisure ||
-            el.tags.historic,
-        }));
-
-      setGems(results);
-    } catch (err) {
-      console.error("Error fetching hidden gems:", err);
-      setError(err instanceof Error ? err.message : "Ukendt fejl");
-    } finally {
+    const { lat, lon } = trip.location;
+    const cacheKey = getCacheKey(lat, lon, "hidden-gems");
+    
+    // Check cache first
+    const cached = getFromCache<HiddenGem[]>(cacheKey);
+    if (cached) {
+      setGems(cached);
       setLoading(false);
+      return;
     }
-  };
 
-  if (!tripData) return null;
+    // Try with increasing radius: 15km, 25km, 40km
+    const radiusSteps = [15000, 25000, 40000];
+    
+    for (const radius of radiusSteps) {
+      try {
+        const query = `
+          [out:json][timeout:25];
+          (
+            node["tourism"="viewpoint"](around:${radius},${lat},${lon});
+            node["tourism"="artwork"](around:${radius},${lat},${lon});
+            node["natural"="cave_entrance"](around:${radius},${lat},${lon});
+            node["leisure"="garden"](around:${radius},${lat},${lon});
+            node["historic"="ruins"](around:${radius},${lat},${lon});
+            node["natural"="spring"](around:${radius},${lat},${lon});
+            node["tourism"="picnic_site"](around:${radius},${lat},${lon});
+            node["natural"="waterfall"](around:${radius},${lat},${lon});
+            way["tourism"="viewpoint"](around:${radius},${lat},${lon});
+            way["leisure"="garden"](around:${radius},${lat},${lon});
+            way["historic"="ruins"](around:${radius},${lat},${lon});
+          );
+          out center 60;
+        `;
+
+        const response = await fetchWithFallback(OVERPASS_ENDPOINTS, query);
+
+        if (!response.ok) {
+          if (response.status === 429 || response.status === 504) {
+            continue; // Try next radius or endpoint
+          }
+          throw new Error("Kunne ikke hente skjulte perler");
+        }
+
+        const json = await response.json();
+        const results: HiddenGem[] = json.elements
+          .filter((el: any) => el.tags?.name)
+          .slice(0, 20)
+          .map((el: any) => ({
+            id: String(el.id),
+            name: el.tags.name,
+            description: el.tags.description,
+            lat: el.lat || el.center?.lat,
+            lon: el.lon || el.center?.lon,
+            category:
+              el.tags.tourism ||
+              el.tags.natural ||
+              el.tags.leisure ||
+              el.tags.historic,
+          }));
+
+        if (results.length >= 5 || radius === radiusSteps[radiusSteps.length - 1]) {
+          setGems(results);
+          setRadiusUsed(radius);
+          setCache(cacheKey, results);
+          setLoading(false);
+          return;
+        }
+        // Not enough results, try larger radius
+      } catch (err) {
+        console.error(`Error with radius ${radius}:`, err);
+        // Continue to next radius
+      }
+    }
+
+    setError("Overpass er travl lige nu – prøv igen om lidt");
+    setLoading(false);
+  }, [trip.location]);
+
+  useEffect(() => {
+    fetchGems();
+  }, [fetchGems]);
 
   return (
     <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
-      <PageHeader title="Skjulte perler" subtitle={tripData.destination} />
+      <PageHeader title="Skjulte perler" subtitle={trip.destination} />
 
       <main className="flex-1 space-y-4 pb-6">
         <NeonCard padding="sm">
           <p className="text-sm text-muted-foreground">
-            Unikke steder fra OpenStreetMap - udsigter, kunst, haver og ruiner
+            Unikke steder fra OpenStreetMap inden for {radiusUsed / 1000} km - udsigter, kunst, haver og ruiner
           </p>
         </NeonCard>
 
         {loading && (
-          <div className="flex items-center justify-center py-12">
-            <LoadingSpinner text="Finder skjulte perler..." />
+          <div className="space-y-4">
+            {[1, 2, 3, 4].map((i) => (
+              <AttractionSkeleton key={i} />
+            ))}
           </div>
         )}
 
-        {error && (
+        {!loading && error && (
           <NeonCard variant="accent" className="border-destructive/30">
-            <p className="text-destructive">{error}</p>
+            <div className="flex flex-col items-center gap-4 py-4">
+              <p className="text-destructive text-center">{error}</p>
+              <NeonButton
+                variant="outline"
+                size="sm"
+                onClick={fetchGems}
+                className="gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Prøv igen
+              </NeonButton>
+            </div>
           </NeonCard>
         )}
 
@@ -138,8 +175,17 @@ export default function HiddenGems() {
             <div className="flex flex-col items-center gap-4 py-6">
               <Sparkles className="h-12 w-12 text-muted-foreground" />
               <p className="text-muted-foreground text-center">
-                Ingen skjulte perler fundet i nærheden.
+                Ingen skjulte perler fundet i nærheden. Prøv et mere centralt punkt.
               </p>
+              <NeonButton
+                variant="outline"
+                size="sm"
+                onClick={fetchGems}
+                className="gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Prøv igen
+              </NeonButton>
             </div>
           </NeonCard>
         )}
@@ -159,6 +205,16 @@ export default function HiddenGems() {
           </div>
         </NeonCard>
       </main>
+
+      <TripDebug />
     </div>
+  );
+}
+
+export default function HiddenGems() {
+  return (
+    <TripGuard>
+      <HiddenGemsContent />
+    </TripGuard>
   );
 }

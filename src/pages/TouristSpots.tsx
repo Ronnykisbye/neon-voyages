@@ -1,24 +1,24 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { Landmark, RefreshCw, ExternalLink, Info } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { NeonCard } from "@/components/ui/NeonCard";
 import { NeonButton } from "@/components/ui/NeonButton";
 import { AttractionCard } from "@/components/AttractionCard";
 import { AttractionSkeleton } from "@/components/AttractionSkeleton";
-import { loadTripData, type TripData } from "@/services/storage";
+import { TripGuard } from "@/components/TripGuard";
+import { TripDebug } from "@/components/TripDebug";
+import { useTrip } from "@/context/TripContext";
 import { fetchAttractions, type AttractionResult } from "@/services/overpass";
 
-export default function TouristSpots() {
-  const navigate = useNavigate();
-  const [tripData, setTripData] = useState<TripData | null>(null);
+function TouristSpotsContent() {
+  const { trip } = useTrip();
   const [attractions, setAttractions] = useState<AttractionResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [radiusUsed, setRadiusUsed] = useState<number>(6000);
 
-  const loadAttractions = useCallback(async (data: TripData) => {
-    if (!data.location) {
+  const loadAttractions = useCallback(async () => {
+    if (!trip.location) {
       setError("Ingen lokation fundet");
       setLoading(false);
       return;
@@ -27,7 +27,7 @@ export default function TouristSpots() {
     setLoading(true);
     setError(null);
 
-    const result = await fetchAttractions(data.location.lat, data.location.lon);
+    const result = await fetchAttractions(trip.location.lat, trip.location.lon);
 
     if (result.error) {
       setError(result.error);
@@ -37,29 +37,15 @@ export default function TouristSpots() {
     }
 
     setLoading(false);
-  }, []);
+  }, [trip.location]);
 
   useEffect(() => {
-    const data = loadTripData();
-    if (!data.destination || !data.location) {
-      navigate("/");
-      return;
-    }
-    setTripData(data);
-    loadAttractions(data);
-  }, [navigate, loadAttractions]);
-
-  const handleRetry = () => {
-    if (tripData) {
-      loadAttractions(tripData);
-    }
-  };
-
-  if (!tripData) return null;
+    loadAttractions();
+  }, [loadAttractions]);
 
   return (
     <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
-      <PageHeader title="Seværdigheder" subtitle={tripData.destination} />
+      <PageHeader title="Seværdigheder" subtitle={trip.destination} />
 
       <main className="flex-1 space-y-4 pb-6">
         {/* Info card */}
@@ -90,7 +76,7 @@ export default function TouristSpots() {
               <NeonButton
                 variant="outline"
                 size="sm"
-                onClick={handleRetry}
+                onClick={loadAttractions}
                 className="gap-2"
               >
                 <RefreshCw className="h-4 w-4" />
@@ -126,7 +112,7 @@ export default function TouristSpots() {
               <NeonButton
                 variant="outline"
                 size="sm"
-                onClick={handleRetry}
+                onClick={loadAttractions}
                 className="gap-2"
               >
                 <RefreshCw className="h-4 w-4" />
@@ -152,6 +138,16 @@ export default function TouristSpots() {
           </div>
         </NeonCard>
       </main>
+
+      <TripDebug />
     </div>
+  );
+}
+
+export default function TouristSpots() {
+  return (
+    <TripGuard>
+      <TouristSpotsContent />
+    </TripGuard>
   );
 }
