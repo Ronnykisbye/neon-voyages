@@ -2,11 +2,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { TripProvider } from "@/context/TripContext";
-
-import GlobalLoadingIndicator from "@/components/GlobalLoadingIndicator";
 
 import Index from "./pages/Index";
 import Menu from "./pages/Menu";
@@ -30,11 +28,8 @@ const App = () => (
           <Toaster />
           <Sonner />
 
-          {/* Vis indikator når appen henter data */}
-          <GlobalLoadingIndicator />
-
-          {/* GitHub Pages basename */}
-          <BrowserRouter basename="/neon-voyages">
+          {/* GitHub Pages: HashRouter undgår 404 ved direkte links som /menu */}
+          <HashRouter>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/menu" element={<Menu />} />
@@ -48,7 +43,7 @@ const App = () => (
               <Route path="/help" element={<Help />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </BrowserRouter>
+          </HashRouter>
         </TooltipProvider>
       </TripProvider>
     </ThemeProvider>
