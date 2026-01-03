@@ -95,3 +95,105 @@ export function getGoogleMapsUrl(lat: number, lon: number, name?: string): strin
 export function getGoogleMapsDirectionsUrl(lat: number, lon: number): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
 }
+
+// Reverse geocoding result interface
+export interface ReverseGeocodingResult {
+  displayName: string;
+  street?: string;
+  houseNumber?: string;
+  city?: string;
+  suburb?: string;
+  country?: string;
+}
+
+// Reverse geocode coordinates to get address (for PlaceCard)
+export async function reverseGeocodeAddress(lat: number, lon: number): Promise<ReverseGeocodingResult | null> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`,
+      {
+        headers: {
+          'Accept-Language': 'da,en',
+          'User-Agent': 'UngRejseApp/1.0',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    
+    return {
+      displayName: data.display_name,
+      street: data.address?.road,
+      houseNumber: data.address?.house_number,
+      city: data.address?.city || data.address?.town || data.address?.village || data.address?.municipality,
+      suburb: data.address?.suburb || data.address?.neighbourhood,
+      country: data.address?.country,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Format address from OSM tags or reverse geocoding
+export function formatAddress(
+  tags?: Record<string, string>,
+  reverseResult?: ReverseGeocodingResult | null
+): string {
+  // Try OSM tags first
+  if (tags) {
+    const parts: string[] = [];
+    
+    if (tags['addr:street']) {
+      let street = tags['addr:street'];
+      if (tags['addr:housenumber']) {
+        street += ' ' + tags['addr:housenumber'];
+      }
+      parts.push(street);
+    }
+    
+    if (tags['addr:city']) {
+      parts.push(tags['addr:city']);
+    } else if (tags['addr:postcode']) {
+      parts.push(tags['addr:postcode']);
+    }
+    
+    if (parts.length > 0) {
+      return parts.join(', ');
+    }
+  }
+  
+  // Fall back to reverse geocoding result
+  if (reverseResult) {
+    const parts: string[] = [];
+    
+    if (reverseResult.street) {
+      let street = reverseResult.street;
+      if (reverseResult.houseNumber) {
+        street += ' ' + reverseResult.houseNumber;
+      }
+      parts.push(street);
+    } else if (reverseResult.suburb) {
+      parts.push(reverseResult.suburb);
+    }
+    
+    if (reverseResult.city) {
+      parts.push(reverseResult.city);
+    }
+    
+    if (parts.length > 0) {
+      return parts.join(', ');
+    }
+    
+    // Last resort: use display name but truncate
+    if (reverseResult.displayName) {
+      const shortName = reverseResult.displayName.split(',').slice(0, 2).join(',');
+      return shortName;
+    }
+  }
+  
+  return 'Adresse ikke tilgængelig';
+}

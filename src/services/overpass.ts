@@ -124,6 +124,147 @@ export async function queryOverpass(
   return { data: null, error: "Overpass er travl lige nu – prøv igen om lidt" };
 }
 
+// Helper to get coordinates from element
+export function getCoordinates(element: OverpassElement): { lat: number; lon: number } | null {
+  if (element.lat !== undefined && element.lon !== undefined) {
+    return { lat: element.lat, lon: element.lon };
+  }
+  if (element.center) {
+    return { lat: element.center.lat, lon: element.center.lon };
+  }
+  return null;
+}
+
+// Get category label from tags - for PlaceCard
+export function getCategoryLabel(tags: Record<string, string>): string {
+  if (tags.tourism === 'museum') return 'Museum';
+  if (tags.tourism === 'gallery') return 'Galleri';
+  if (tags.tourism === 'attraction') return 'Attraktion';
+  if (tags.tourism === 'viewpoint') return 'Udsigtspost';
+  if (tags.tourism === 'artwork') return 'Kunst';
+  if (tags.historic === 'castle') return 'Slot';
+  if (tags.historic === 'monument') return 'Monument';
+  if (tags.historic === 'memorial') return 'Mindesmærke';
+  if (tags.historic === 'ruins') return 'Ruiner';
+  if (tags.historic === 'church') return 'Historisk kirke';
+  if (tags.historic) return 'Historisk sted';
+  if (tags.amenity === 'place_of_worship') return 'Kirke/Tempel';
+  if (tags.amenity === 'cafe') return 'Café';
+  if (tags.amenity === 'bakery') return 'Bageri';
+  if (tags.amenity === 'restaurant') return 'Restaurant';
+  if (tags.amenity === 'fast_food') return 'Fast food';
+  if (tags.amenity === 'marketplace') return 'Marked';
+  if (tags.amenity === 'fountain') return 'Springvand';
+  if (tags.leisure === 'park') return 'Park';
+  if (tags.leisure === 'garden') return 'Have';
+  if (tags.man_made === 'tower') return 'Tårn';
+  if (tags.shop === 'supermarket') return 'Supermarked';
+  if (tags.shop === 'mall') return 'Indkøbscenter';
+  if (tags.shop === 'convenience') return 'Minimarked';
+  if (tags.shop === 'department_store') return 'Stormagasin';
+  if (tags.natural === 'tree') return 'Træ (vartegn)';
+  return 'Sted';
+}
+
+// Get category description (generic, not specific to venue) - for PlaceCard
+export function getCategoryDescription(tags: Record<string, string>): string {
+  if (tags.tourism === 'museum') return 'Museer byder typisk på udstillinger, samlinger og kulturhistorie.';
+  if (tags.tourism === 'gallery') return 'Gallerier viser kunst og udstillinger.';
+  if (tags.tourism === 'attraction') return 'Turistattraktioner er populære besøgsmål.';
+  if (tags.tourism === 'viewpoint') return 'Udsigtsposten giver panoramaudsigt over området.';
+  if (tags.tourism === 'artwork') return 'Offentlig kunst i byrummet.';
+  if (tags.historic === 'castle') return 'Historisk slot med arkitektur og ofte mulighed for rundvisning.';
+  if (tags.historic === 'monument') return 'Monument der markerer en historisk begivenhed eller person.';
+  if (tags.historic === 'memorial') return 'Mindesmærke for vigtige begivenheder eller personer.';
+  if (tags.historic === 'ruins') return 'Historiske ruiner fra tidligere bygninger.';
+  if (tags.historic) return 'Historisk sted med kulturel betydning.';
+  if (tags.amenity === 'place_of_worship') return 'Religiøst sted – ofte med smuk arkitektur.';
+  if (tags.amenity === 'cafe') return 'Café med kaffe, te og lette måltider.';
+  if (tags.amenity === 'bakery') return 'Bageri med brød, kager og bagværk.';
+  if (tags.amenity === 'restaurant') return 'Restaurant med varme retter og servering.';
+  if (tags.amenity === 'fast_food') return 'Hurtig mad til rimelige priser.';
+  if (tags.amenity === 'marketplace') return 'Marked med lokale varer og fødevarer.';
+  if (tags.amenity === 'fountain') return 'Dekorativt springvand i byrummet.';
+  if (tags.leisure === 'park') return 'Grønt område til afslapning og gåture.';
+  if (tags.leisure === 'garden') return 'Have med planter og stier.';
+  if (tags.man_made === 'tower') return 'Tårn med potentiel udsigt over byen.';
+  if (tags.shop === 'supermarket') return 'Dagligvarebutik med et bredt udvalg.';
+  if (tags.shop === 'mall') return 'Indkøbscenter med mange butikker.';
+  if (tags.shop === 'convenience') return 'Lille butik til hurtige indkøb.';
+  if (tags.shop === 'department_store') return 'Stormagasin med flere afdelinger.';
+  return 'Sted af interesse i området.';
+}
+
+// Food query types
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'all';
+
+export function buildFoodQuery(lat: number, lon: number, radiusMeters: number, mealType: MealType): string {
+  let amenities: string[] = [];
+  
+  switch (mealType) {
+    case 'breakfast':
+      amenities = ['cafe', 'bakery'];
+      break;
+    case 'lunch':
+      amenities = ['cafe', 'restaurant'];
+      break;
+    case 'dinner':
+      amenities = ['restaurant', 'fast_food'];
+      break;
+    case 'all':
+    default:
+      amenities = ['cafe', 'bakery', 'restaurant', 'fast_food'];
+  }
+
+  const nodeQueries = amenities.map(a => `node["amenity"="${a}"](around:${radiusMeters},${lat},${lon});`).join('\n  ');
+  const wayQueries = amenities.map(a => `way["amenity"="${a}"](around:${radiusMeters},${lat},${lon});`).join('\n  ');
+
+  return `
+[out:json][timeout:25];
+(
+  ${nodeQueries}
+  ${wayQueries}
+);
+out center 50;
+`.trim();
+}
+
+// Hidden gems query
+export function buildHiddenGemsQuery(lat: number, lon: number, radiusMeters: number): string {
+  return `
+[out:json][timeout:25];
+(
+  node["tourism"="artwork"](around:${radiusMeters},${lat},${lon});
+  node["amenity"="fountain"](around:${radiusMeters},${lat},${lon});
+  node["historic"="memorial"](around:${radiusMeters},${lat},${lon});
+  node["natural"="tree"]["denotation"="landmark"](around:${radiusMeters},${lat},${lon});
+  node["leisure"="garden"](around:${radiusMeters},${lat},${lon});
+  node["tourism"="viewpoint"](around:${radiusMeters},${lat},${lon});
+  way["leisure"="garden"](around:${radiusMeters},${lat},${lon});
+  way["tourism"="artwork"](around:${radiusMeters},${lat},${lon});
+);
+out center 50;
+`.trim();
+}
+
+// Markets query
+export function buildMarketsQuery(lat: number, lon: number, radiusMeters: number): string {
+  return `
+[out:json][timeout:25];
+(
+  node["amenity"="marketplace"](around:${radiusMeters},${lat},${lon});
+  node["shop"="supermarket"](around:${radiusMeters},${lat},${lon});
+  node["shop"="convenience"](around:${radiusMeters},${lat},${lon});
+  node["shop"="mall"](around:${radiusMeters},${lat},${lon});
+  node["shop"="department_store"](around:${radiusMeters},${lat},${lon});
+  way["amenity"="marketplace"](around:${radiusMeters},${lat},${lon});
+  way["shop"="supermarket"](around:${radiusMeters},${lat},${lon});
+  way["shop"="mall"](around:${radiusMeters},${lat},${lon});
+);
+out center 50;
+`.trim();
+}
+
 export interface AttractionResult {
   id: string;
   name: string;

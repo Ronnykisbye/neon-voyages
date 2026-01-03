@@ -1,18 +1,26 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Landmark, RefreshCw, ExternalLink, Info } from "lucide-react";
+import { Landmark, ExternalLink, Info } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { NeonCard } from "@/components/ui/NeonCard";
-import { NeonButton } from "@/components/ui/NeonButton";
-import { AttractionCard } from "@/components/AttractionCard";
-import { AttractionSkeleton } from "@/components/AttractionSkeleton";
+import { PlaceCard } from "@/components/PlaceCard";
+import { PlaceSkeleton } from "@/components/PlaceSkeleton";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 import { TripGuard } from "@/components/TripGuard";
 import { TripDebug } from "@/components/TripDebug";
 import { useTrip } from "@/context/TripContext";
-import { fetchAttractions, type AttractionResult } from "@/services/overpass";
+import { 
+  queryOverpass, 
+  getCacheKey, 
+  getFromCache, 
+  setCache,
+  buildAttractionsQuery,
+  type OverpassElement 
+} from "@/services/overpass";
 
 function TouristSpotsContent() {
   const { trip } = useTrip();
-  const [attractions, setAttractions] = useState<AttractionResult[]>([]);
+  const [attractions, setAttractions] = useState<OverpassElement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [radiusUsed, setRadiusUsed] = useState<number>(6000);
@@ -27,15 +35,47 @@ function TouristSpotsContent() {
     setLoading(true);
     setError(null);
 
-    const result = await fetchAttractions(trip.location.lat, trip.location.lon);
-
-    if (result.error) {
-      setError(result.error);
-    } else if (result.data) {
-      setAttractions(result.data);
-      setRadiusUsed(result.radiusUsed);
+    const { lat, lon } = trip.location;
+    const cacheKey = getCacheKey(lat, lon, "attractions");
+    
+    // Check cache first (24h)
+    const cached = getFromCache<OverpassElement[]>(cacheKey);
+    if (cached) {
+      setAttractions(cached);
+      setLoading(false);
+      return;
     }
 
+    // Try with increasing radius: 6km, 12km, 20km
+    const radiusSteps = [6000, 12000, 20000];
+    
+    for (const radius of radiusSteps) {
+      const query = buildAttractionsQuery(lat, lon, radius);
+      const result = await queryOverpass(query);
+
+      if (result.error) {
+        // If last radius also fails, show error
+        if (radius === radiusSteps[radiusSteps.length - 1]) {
+          setError(result.error);
+          setLoading(false);
+          return;
+        }
+        // Try smaller radius on timeout
+        continue;
+      }
+
+      const results = (result.data || []).filter(el => el.tags?.name);
+
+      if (results.length >= 10 || radius === radiusSteps[radiusSteps.length - 1]) {
+        setAttractions(results.slice(0, 40));
+        setRadiusUsed(radius);
+        setCache(cacheKey, results.slice(0, 40));
+        setLoading(false);
+        return;
+      }
+    }
+
+    setError("Overpass er travl lige nu – prøv igen om lidt");
     setLoading(false);
   }, [trip.location]);
 
@@ -63,63 +103,31 @@ function TouristSpotsContent() {
         {loading && (
           <div className="space-y-4">
             {[1, 2, 3, 4].map((i) => (
-              <AttractionSkeleton key={i} />
+              <PlaceSkeleton key={i} />
             ))}
           </div>
         )}
 
         {/* Error state with retry */}
         {!loading && error && (
-          <NeonCard variant="accent" className="border-destructive/30">
-            <div className="flex flex-col items-center gap-4 py-4">
-              <p className="text-destructive text-center">{error}</p>
-              <NeonButton
-                variant="outline"
-                size="sm"
-                onClick={loadAttractions}
-                className="gap-2"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Prøv igen
-              </NeonButton>
-            </div>
-          </NeonCard>
+          <ErrorState message={error} onRetry={loadAttractions} />
         )}
 
         {/* Results */}
         {!loading && !error && attractions.length > 0 && (
           <div className="space-y-4">
             {attractions.map((attraction) => (
-              <AttractionCard key={attraction.id} attraction={attraction} />
+              <PlaceCard key={`${attraction.type}_${attraction.id}`} element={attraction} />
             ))}
           </div>
         )}
 
         {/* Empty state */}
         {!loading && !error && attractions.length === 0 && (
-          <NeonCard>
-            <div className="flex flex-col items-center gap-4 py-6">
-              <Landmark className="h-12 w-12 text-muted-foreground" />
-              <div className="text-center space-y-2">
-                <p className="text-muted-foreground">
-                  Ingen seværdigheder fundet inden for {radiusUsed / 1000} km.
-                </p>
-                <p className="text-sm text-muted-foreground/70">
-                  OpenStreetMap har muligvis ikke detaljerede data for dette område.
-                  Prøv at søge på et mere centralt punkt, eller brug Google Maps direkte.
-                </p>
-              </div>
-              <NeonButton
-                variant="outline"
-                size="sm"
-                onClick={loadAttractions}
-                className="gap-2"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Prøv igen
-              </NeonButton>
-            </div>
-          </NeonCard>
+          <EmptyState 
+            title="Ingen seværdigheder fundet"
+            message="OpenStreetMap har muligvis ikke detaljerede data for dette område. Prøv et mere centralt punkt, eller brug Google Maps direkte."
+          />
         )}
 
         {/* Source attribution */}
