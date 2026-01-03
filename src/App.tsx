@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { TripProvider } from "@/context/TripContext";
+
 import Index from "./pages/Index";
 import Menu from "./pages/Menu";
 import Weather from "./pages/Weather";
@@ -26,7 +27,9 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+
+          {/* 🔑 VIGTIGT: basename matcher GitHub Pages repo-navn */}
+          <BrowserRouter basename="/neon-voyages">
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/menu" element={<Menu />} />
@@ -41,6 +44,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
+
         </TooltipProvider>
       </TripProvider>
     </ThemeProvider>
