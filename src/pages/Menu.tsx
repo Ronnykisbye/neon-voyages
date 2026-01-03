@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { format } from "date-fns";
 import { da } from "date-fns/locale";
 import {
@@ -6,19 +6,33 @@ import {
   Landmark,
   Sparkles,
   Utensils,
-  PartyPopper,
+  Calendar as CalendarIcon,
   ShoppingBag,
   Bus,
   LifeBuoy,
   MapPin,
   Calendar,
+  Trash2,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { MenuButton } from "@/components/MenuButton";
 import { NeonCard } from "@/components/ui/NeonCard";
+import { NeonButton } from "@/components/ui/NeonButton";
 import { TripGuard } from "@/components/TripGuard";
 import { TripDebug } from "@/components/TripDebug";
 import { useTrip } from "@/context/TripContext";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const menuItems = [
   {
@@ -50,9 +64,9 @@ const menuItems = [
     variant: "primary" as const,
   },
   {
-    icon: <PartyPopper className="h-6 w-6" />,
-    label: "Begivenheder",
-    description: "Events i perioden",
+    icon: <CalendarIcon className="h-6 w-6" />,
+    label: "Lokale tips",
+    description: "Events & kulturkalender",
     to: "/events",
     variant: "accent" as const,
   },
@@ -80,7 +94,8 @@ const menuItems = [
 ];
 
 function MenuContent() {
-  const { trip } = useTrip();
+  const { trip, clearTrip } = useTrip();
+  const navigate = useNavigate();
 
   const dateRange =
     trip.startDate && trip.endDate
@@ -90,6 +105,11 @@ function MenuContent() {
           { locale: da }
         )}`
       : "";
+
+  const handleClearTrip = () => {
+    clearTrip();
+    navigate("/");
+  };
 
   return (
     <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
@@ -132,6 +152,37 @@ function MenuContent() {
             variant={item.variant}
           />
         ))}
+
+        {/* Reset Trip Button */}
+        <div className="pt-4">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <NeonButton
+                variant="ghost"
+                size="default"
+                className="w-full text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Nulstil rejse
+              </NeonButton>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Nulstil rejse?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Dette vil slette alle rejsedata og sende dig tilbage til forsiden. 
+                  Denne handling kan ikke fortrydes.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annuller</AlertDialogCancel>
+                <AlertDialogAction onClick={handleClearTrip}>
+                  Nulstil
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </main>
 
       <TripDebug />

@@ -1,4 +1,4 @@
-import React from "react";
+import * as React from "react";
 import { format, addDays } from "date-fns";
 import { da } from "date-fns/locale";
 import { Calendar as CalendarIcon } from "lucide-react";

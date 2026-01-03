@@ -1,87 +1,94 @@
 import React from "react";
-import { PartyPopper, ExternalLink, Calendar } from "lucide-react";
-import { format } from "date-fns";
-import { da } from "date-fns/locale";
+import { ExternalLink, Globe, Calendar, MapPin, Info, Facebook, Search } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { NeonCard } from "@/components/ui/NeonCard";
-import { ApiKeyNotice } from "@/components/ApiKeyNotice";
+import { NeonButton } from "@/components/ui/NeonButton";
 import { TripGuard } from "@/components/TripGuard";
 import { TripDebug } from "@/components/TripDebug";
 import { useTrip } from "@/context/TripContext";
 
 function EventsContent() {
   const { trip } = useTrip();
+  const destination = encodeURIComponent(trip.destination);
 
-  const dateRange =
-    trip.startDate && trip.endDate
-      ? `${format(trip.startDate, "d. MMMM", { locale: da })} - ${format(
-          trip.endDate,
-          "d. MMMM yyyy",
-          { locale: da }
-        )}`
-      : "";
+  const externalLinks = [
+    {
+      label: "Google Events",
+      description: "Søg efter events i Google",
+      url: `https://www.google.com/search?q=events+in+${destination}`,
+      icon: <Search className="h-5 w-5" />,
+    },
+    {
+      label: "Facebook Events",
+      description: "Se events på Facebook",
+      url: `https://www.facebook.com/events/search?q=${destination}`,
+      icon: <Facebook className="h-5 w-5" />,
+    },
+    {
+      label: "Tripadvisor Aktiviteter",
+      description: "Ting at lave på Tripadvisor",
+      url: `https://www.tripadvisor.com/Search?q=${destination}&searchSessionId=&searchNearby=false&geo=1&ssrc=a`,
+      icon: <Globe className="h-5 w-5" />,
+    },
+    {
+      label: "Eventbrite",
+      description: "Koncerter, workshops og mere",
+      url: `https://www.eventbrite.com/d/nearby--${destination}/events/`,
+      icon: <Calendar className="h-5 w-5" />,
+    },
+    {
+      label: "Meetup",
+      description: "Lokale arrangementer og grupper",
+      url: `https://www.meetup.com/find/?location=${destination}&source=EVENTS`,
+      icon: <MapPin className="h-5 w-5" />,
+    },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
-      <PageHeader title="Begivenheder" subtitle={trip.destination} />
+      <PageHeader title="Lokale tips & kalender" subtitle={trip.destination} />
 
       <main className="flex-1 space-y-4 pb-6">
-        <NeonCard variant="glow">
-          <div className="flex items-center gap-3 mb-3">
-            <Calendar className="h-5 w-5 text-primary" />
-            <span className="font-medium">{dateRange}</span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Søger efter begivenheder i denne periode
-          </p>
-        </NeonCard>
-
-        <ApiKeyNotice
-          apiName="Event API"
-          description="For at vise begivenheder kræves integration med en event-platform. Brug links nedenfor."
-          documentationUrl="https://www.eventbrite.com/platform/api"
-        />
-
-        <NeonCard>
-          <div className="flex flex-col items-center gap-4 py-6">
-            <PartyPopper className="h-12 w-12 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground text-center">
-              Du kan manuelt søge efter begivenheder via disse links:
+        {/* Info card */}
+        <NeonCard padding="sm">
+          <div className="flex items-start gap-2">
+            <Info className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              Events og lokale begivenheder kræver direkte søgning på de officielle platforme. 
+              Brug links nedenfor til at finde aktuelle events.
             </p>
           </div>
         </NeonCard>
 
+        {/* External links */}
         <div className="space-y-3">
-          <a
-            href={`https://www.eventbrite.com/d/nearby--${encodeURIComponent(trip.destination)}/events/`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:shadow-neon-primary hover:border-primary/50 transition-all"
-          >
-            <span className="font-medium">Eventbrite</span>
-            <ExternalLink className="h-4 w-4 text-primary" />
-          </a>
-
-          <a
-            href={`https://www.facebook.com/events/search?q=${encodeURIComponent(trip.destination)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:shadow-neon-primary hover:border-primary/50 transition-all"
-          >
-            <span className="font-medium">Facebook Events</span>
-            <ExternalLink className="h-4 w-4 text-primary" />
-          </a>
-
-          <a
-            href={`https://www.meetup.com/find/?location=${encodeURIComponent(trip.destination)}&source=EVENTS`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:shadow-neon-primary hover:border-primary/50 transition-all"
-          >
-            <span className="font-medium">Meetup</span>
-            <ExternalLink className="h-4 w-4 text-primary" />
-          </a>
+          {externalLinks.map((link) => (
+            <a
+              key={link.label}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:shadow-neon-primary hover:border-primary/50 transition-all active:scale-[0.98]"
+            >
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                {link.icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-foreground">{link.label}</h3>
+                <p className="text-sm text-muted-foreground">{link.description}</p>
+              </div>
+              <ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            </a>
+          ))}
         </div>
+
+        {/* Source note */}
+        <NeonCard padding="sm">
+          <p className="text-xs text-muted-foreground text-center">
+            Alle links åbner i en ny fane på de officielle platforme. 
+            Vi henter ikke data fra disse sider.
+          </p>
+        </NeonCard>
       </main>
 
       <TripDebug />
