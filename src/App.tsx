@@ -6,6 +6,8 @@ import { HashRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { TripProvider } from "@/context/TripContext";
 
+import GlobalLoadingIndicator from "@/components/GlobalLoadingIndicator";
+
 import Index from "./pages/Index";
 import Menu from "./pages/Menu";
 import Weather from "./pages/Weather";
@@ -28,7 +30,10 @@ const App = () => (
           <Toaster />
           <Sonner />
 
-          {/* GitHub Pages: HashRouter undgår 404 ved direkte links som /menu */}
+          {/* Viser "arbejder..." når appen henter data */}
+          <GlobalLoadingIndicator />
+
+          {/* GitHub Pages: HashRouter undgår 404 ved direkte links */}
           <HashRouter>
             <Routes>
               <Route path="/" element={<Index />} />
