@@ -1,104 +1,75 @@
-/* ============================================================================
-AFSNIT 00 – Fonts
-============================================================================ */
 @import '@fontsource/outfit/400.css';
 @import '@fontsource/outfit/500.css';
 @import '@fontsource/outfit/600.css';
 @import '@fontsource/outfit/700.css';
 
-/* ============================================================================
-AFSNIT 01 – Tailwind
-============================================================================ */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* Neon Travel App Design System - All colors in HSL */
 
-/* ============================================================================
-AFSNIT 02 – Theme variables (Light + Dark)
-============================================================================ */
 @layer base {
   :root {
-    /* ------------------------------------------------------------------------
-    AFSNIT 02A – LIGHT MODE (Ung, clean, høj kontrast i sollys)
-    Palette (HEX → HSL):
-    #FFFFFF bg            -> 0 0% 100%
-    #F7F7F7 cards         -> 0 0% 97%
-    #1A1A1A text          -> 0 0% 10%
-    #4A4A4A secondary txt -> 0 0% 29%
-    #007AFF primary       -> 211 100% 50%
-    #34C759 secondary     -> 135 59% 49%
-    #FF9500 accent        -> 35 100% 50%
-    #E0E0E0 border/divider-> 0 0% 88%
-    #C8C8C8 input border  -> 0 0% 78%
-    ------------------------------------------------------------------------ */
+    /* Light mode - calm daylight theme */
+    --background: 220 25% 97%;
+    --foreground: 220 30% 15%;
 
-    /* Background + text */
-    --background: 0 0% 100%;
-    --foreground: 0 0% 10%;
+    --card: 220 20% 100%;
+    --card-foreground: 220 30% 15%;
 
-    /* Surfaces */
-    --card: 0 0% 97%;
-    --card-foreground: 0 0% 10%;
+    --popover: 220 20% 100%;
+    --popover-foreground: 220 30% 15%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
+    /* Primary: Neon Cyan */
+    --primary: 180 85% 40%;
+    --primary-foreground: 220 30% 98%;
+    --primary-glow: 180 100% 50%;
 
-    /* Primary: Modern blue (CTA) */
-    --primary: 211 100% 50%;
-    --primary-foreground: 0 0% 100%;
-    --primary-glow: 211 100% 60%;
+    /* Secondary: Soft Violet */
+    --secondary: 260 60% 92%;
+    --secondary-foreground: 260 50% 30%;
+    --secondary-glow: 260 80% 65%;
 
-    /* Secondary: Fresh green (positive actions) */
-    --secondary: 135 59% 49%;
-    --secondary-foreground: 0 0% 100%;
-    --secondary-glow: 135 70% 55%;
-
-    /* Accent: Orange highlight */
-    --accent: 35 100% 50%;
+    /* Accent: Neon Pink */
+    --accent: 320 85% 55%;
     --accent-foreground: 0 0% 100%;
-    --accent-glow: 35 100% 60%;
+    --accent-glow: 320 100% 65%;
 
-    /* Muted */
-    --muted: 0 0% 97%;
-    --muted-foreground: 0 0% 29%;
+    --muted: 220 20% 92%;
+    --muted-foreground: 220 15% 45%;
 
-    /* Status */
     --destructive: 0 85% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Lines + inputs */
-    --border: 0 0% 88%;
-    --input: 0 0% 78%;
-    --ring: 211 100% 50%;
+    --border: 220 20% 88%;
+    --input: 220 20% 88%;
+    --ring: 180 85% 40%;
 
     --radius: 1rem;
 
-    /* ------------------------------------------------------------------------
-    AFSNIT 02B – Shadows and effects (tilpasset Light mode)
-    ------------------------------------------------------------------------ */
-    --shadow-neon-primary: 0 0 18px hsl(211 100% 60% / 0.35), 0 0 36px hsl(211 100% 50% / 0.18);
-    --shadow-neon-accent: 0 0 18px hsl(35 100% 60% / 0.32), 0 0 36px hsl(35 100% 50% / 0.16);
-    --shadow-neon-secondary: 0 0 18px hsl(135 70% 55% / 0.30), 0 0 36px hsl(135 59% 49% / 0.14);
-    --shadow-card: 0 4px 18px hsl(0 0% 10% / 0.08);
+    /* Shadows and effects */
+    --shadow-neon-primary: 0 0 20px hsl(180 100% 50% / 0.4), 0 0 40px hsl(180 100% 50% / 0.2);
+    --shadow-neon-accent: 0 0 20px hsl(320 100% 65% / 0.4), 0 0 40px hsl(320 100% 65% / 0.2);
+    --shadow-neon-secondary: 0 0 20px hsl(260 80% 65% / 0.4), 0 0 40px hsl(260 80% 65% / 0.2);
+    --shadow-card: 0 4px 20px hsl(220 30% 15% / 0.08);
 
-    /* ------------------------------------------------------------------------
-    AFSNIT 02C – Gradients (tilpasset Light mode)
-    ------------------------------------------------------------------------ */
-    --gradient-neon: linear-gradient(135deg, hsl(211 100% 50%), hsl(35 100% 50%));
-    --gradient-surface: linear-gradient(180deg, hsl(0 0% 100%), hsl(0 0% 97%));
-    --gradient-glow: radial-gradient(circle at center, hsl(211 100% 50% / 0.12), transparent 70%);
+    /* Gradients */
+    --gradient-neon: linear-gradient(135deg, hsl(180 85% 40%), hsl(260 80% 55%));
 
-    /* Sidebar (beholdt struktur – let justeret til ny ring/primary) */
+    /* ✅ NY “sexy” light-baggrund: soft sky -> warm sand (rejse/luxury vibe) */
+    --gradient-surface: linear-gradient(180deg, hsl(210 40% 98%), hsl(35 100% 96%));
+
+    --gradient-glow: radial-gradient(circle at center, hsl(180 100% 50% / 0.15), transparent 70%);
+
     --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 0 0% 29%;
-    --sidebar-primary: 211 100% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 97%;
-    --sidebar-accent-foreground: 0 0% 10%;
-    --sidebar-border: 0 0% 88%;
-    --sidebar-ring: 211 100% 50%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   .dark {
@@ -159,9 +130,6 @@ AFSNIT 02 – Theme variables (Light + Dark)
   }
 }
 
-/* ============================================================================
-AFSNIT 03 – Base styles
-============================================================================ */
 @layer base {
   * {
     @apply border-border;
@@ -178,9 +146,6 @@ AFSNIT 03 – Base styles
   }
 }
 
-/* ============================================================================
-AFSNIT 04 – Utilities (glow, gradients, animations)
-============================================================================ */
 @layer utilities {
   /* Neon glow utilities */
   .glow-primary {
@@ -228,7 +193,7 @@ AFSNIT 04 – Utilities (glow, gradients, animations)
       box-shadow: var(--shadow-neon-primary);
     }
     50% {
-      box-shadow: 0 0 30px hsl(211 100% 60% / 0.55), 0 0 60px hsl(211 100% 50% / 0.30);
+      box-shadow: 0 0 35px hsl(180 100% 60% / 0.6), 0 0 70px hsl(180 100% 50% / 0.4);
     }
   }
 
