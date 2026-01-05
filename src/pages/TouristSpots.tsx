@@ -18,10 +18,7 @@ import {
   type OverpassElement,
 } from "@/services/overpass";
 
-/**
- * Robust Overpass-query for "Seværdigheder".
- * (OSM/Overpass, ingen nøgle, ingen scraping)
- */
+/* ---------- Overpass query ---------- */
 function buildTouristSpotsQuery(lat: number, lon: number, radius: number) {
   return `
 [out:json][timeout:25];
@@ -36,8 +33,9 @@ out center tags;
 
 function TouristSpotsContent() {
   const { trip } = useTrip();
+
   const [spots, setSpots] = useState<OverpassElement[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [radiusUsed, setRadiusUsed] = useState<number>(6000);
 
@@ -57,7 +55,7 @@ function TouristSpotsContent() {
       const { lat, lon } = trip.location;
       const cacheKey = getCacheKey(lat, lon, "tourist-spots");
 
-      // Cache først – men ikke hvis brugeren trykker "Søg igen"
+      // Brug cache – men spring over ved “Søg igen”
       if (!forceRefresh) {
         const cached = getFromCache<OverpassElement[]>(cacheKey);
         if (cached) {
@@ -84,7 +82,7 @@ function TouristSpotsContent() {
 
         const results = (result.data || []).filter((el) => el.tags?.name);
 
-        if (results.length >= 12 || radius === radiusSteps[radiusSteps.length - 1]) {
+        if (results.length >= 10 || radius === radiusSteps[radiusSteps.length - 1]) {
           const sliced = results.slice(0, 30);
           setSpots(sliced);
           setRadiusUsed(radius);
@@ -104,7 +102,8 @@ function TouristSpotsContent() {
     fetchSpots();
   }, [fetchSpots]);
 
-  const status = loading ? "loading" : spots.length > 0 ? "done" : "empty";
+  const status =
+    loading ? "loading" : spots.length > 0 ? "done" : "empty";
 
   return (
     <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
@@ -113,15 +112,18 @@ function TouristSpotsContent() {
       <main className="flex-1 space-y-4 pb-6">
         <NeonCard padding="sm">
           <div className="flex items-start gap-2">
-            <Info className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+            <Info className="h-4 w-4 mt-0.5 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              Viser seværdigheder inden for {radiusUsed / 1000} km fra centrum. Data fra OpenStreetMap (gratis, ingen API-nøgle).
+              Viser seværdigheder inden for {radiusUsed / 1000} km fra centrum.
+              Data fra OpenStreetMap (gratis, ingen API-nøgle).
             </p>
           </div>
         </NeonCard>
 
-        {/* Status + Søg igen (force refresh, så den ikke bare rammer cache) */}
-        <SearchStatusBar status={status} onRetry={() => fetchSpots({ forceRefresh: true })} />
+        <SearchStatusBar
+          status={status}
+          onRetry={() => fetchSpots({ forceRefresh: true })}
+        />
 
         {loading && (
           <div className="space-y-4">
@@ -131,12 +133,20 @@ function TouristSpotsContent() {
           </div>
         )}
 
-        {!loading && error && <ErrorState message={error} onRetry={() => fetchSpots({ forceRefresh: true })} />}
+        {!loading && error && (
+          <ErrorState
+            message={error}
+            onRetry={() => fetchSpots({ forceRefresh: true })}
+          />
+        )}
 
         {!loading && !error && spots.length > 0 && (
           <div className="space-y-4">
             {spots.map((spot) => (
-              <PlaceCard key={`${spot.type}_${spot.id}`} element={spot} />
+              <PlaceCard
+                key={`${spot.type}_${spot.id}`}
+                element={spot}
+              />
             ))}
           </div>
         )}
@@ -150,7 +160,9 @@ function TouristSpotsContent() {
 
         <NeonCard padding="sm">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Datakilde</span>
+            <span className="text-sm text-muted-foreground">
+              Datakilde
+            </span>
             <a
               href="https://www.openstreetmap.org/copyright"
               target="_blank"
