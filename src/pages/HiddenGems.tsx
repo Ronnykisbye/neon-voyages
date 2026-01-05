@@ -146,19 +146,14 @@ function HiddenGemsContent() {
         )}
 
         <NeonCard padding="sm">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Datakilde</span>
-            <a
-              href="https://www.openstreetmap.org/copyright"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              © OpenStreetMap
-            </a>
-          </div>
-        </NeonCard>
+  <div className="flex items-start gap-2">
+    <Info className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+    <p className="text-sm text-muted-foreground">
+      Viser steder inden for {radiusUsed / 1000} km fra centrum.
+    </p>
+  </div>
+</NeonCard>
+
       </main>
 
       <TripDebug />
