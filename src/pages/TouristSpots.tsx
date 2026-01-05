@@ -18,14 +18,24 @@ import {
   type OverpassElement,
 } from "@/services/overpass";
 
+type Scope = "nearby" | "dk";
+
 /* ---------- Overpass query ---------- */
-function buildTouristSpotsQuery(lat: number, lon: number, radius: number) {
+function buildTouristSpotsQuery(lat: number, lon: number, radius: number, scope: Scope) {
+  // Når scope = "dk", begrænser vi til Danmarks land-område i OSM
+  const dkArea = `
+area["ISO3166-1"="DK"][admin_level=2]->.dk;
+`;
+
+  const areaFilter = scope === "dk" ? `(area.dk)` : "";
+
   return `
 [out:json][timeout:25];
+${scope === "dk" ? dkArea : ""}
 (
-  nwr(around:${radius},${lat},${lon})["tourism"~"^(attraction|museum|gallery|zoo|aquarium|theme_park|viewpoint)$"];
-  nwr(around:${radius},${lat},${lon})["historic"];
-  nwr(around:${radius},${lat},${lon})["leisure"="park"];
+  nwr(around:${radius},${lat},${lon})["tourism"~"^(attraction|museum|gallery|zoo|aquarium|theme_park|viewpoint)$"]${areaFilter};
+  nwr(around:${radius},${lat},${lon})["historic"]${areaFilter};
+  nwr(around:${radius},${lat},${lon})["leisure"="park"]${areaFilter};
 );
 out center tags;
 `;
@@ -38,6 +48,12 @@ function TouristSpotsContent() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [radiusUsed, setRadiusUsed] = useState<number>(6000);
+
+  // Valg: nærområde eller kun Danmark (gemmes lokalt)
+  const [scope, setScope] = useState<Scope>(() => {
+    const saved = window.localStorage.getItem("nv_spots_scope");
+    return saved === "dk" ? "dk" : "nearby";
+  });
 
   const fetchSpots = useCallback(
     async (opts?: { forceRefresh?: boolean }) => {
@@ -53,7 +69,9 @@ function TouristSpotsContent() {
       setError(null);
 
       const { lat, lon } = trip.location;
-      const cacheKey = getCacheKey(lat, lon, "tourist-spots");
+
+      // Cache-nøgle afhænger også af scope, ellers får du “forkerte” cached resultater
+      const cacheKey = getCacheKey(lat, lon, `tourist-spots-${scope}`);
 
       // Brug cache – men spring over ved “Søg igen”
       if (!forceRefresh) {
@@ -68,7 +86,7 @@ function TouristSpotsContent() {
       const radiusSteps = [6000, 12000, 20000];
 
       for (const radius of radiusSteps) {
-        const query = buildTouristSpotsQuery(lat, lon, radius);
+        const query = buildTouristSpotsQuery(lat, lon, radius, scope);
         const result = await queryOverpass(query);
 
         if (result.error) {
@@ -95,15 +113,14 @@ function TouristSpotsContent() {
       setSpots([]);
       setLoading(false);
     },
-    [trip.location]
+    [trip.location, scope]
   );
 
   useEffect(() => {
     fetchSpots();
   }, [fetchSpots]);
 
-  const status =
-    loading ? "loading" : spots.length > 0 ? "done" : "empty";
+  const status = loading ? "loading" : spots.length > 0 ? "done" : "empty";
 
   return (
     <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
@@ -113,10 +130,35 @@ function TouristSpotsContent() {
         <NeonCard padding="sm">
           <div className="flex items-start gap-2">
             <Info className="h-4 w-4 mt-0.5 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Viser seværdigheder inden for {radiusUsed / 1000} km fra centrum.
-              Data fra OpenStreetMap (gratis, ingen API-nøgle).
-            </p>
+            <div className="w-full">
+              <p className="text-sm text-muted-foreground">
+                Viser seværdigheder inden for {radiusUsed / 1000} km fra centrum. Data fra OpenStreetMap (gratis, ingen API-nøgle).
+              </p>
+
+              {/* Scope valg */}
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <label className="text-sm text-muted-foreground" htmlFor="scope">
+                  Område:
+                </label>
+
+                <select
+                  id="scope"
+                  className="w-52 rounded-lg border bg-background px-3 py-2 text-sm"
+                  value={scope}
+                  onChange={(e) => {
+                    const next = e.target.value === "dk" ? "dk" : "nearby";
+                    setScope(next);
+                    window.localStorage.setItem("nv_spots_scope", next);
+                    // Skift scope => hent nye data (force refresh)
+                    // (vi venter ikke på useEffect alene, så det føles instant)
+                    setTimeout(() => fetchSpots({ forceRefresh: true }), 0);
+                  }}
+                >
+                  <option value="nearby">Nærområde (kan krydse grænser)</option>
+                  <option value="dk">Kun Danmark</option>
+                </select>
+              </div>
+            </div>
           </div>
         </NeonCard>
 
@@ -143,10 +185,7 @@ function TouristSpotsContent() {
         {!loading && !error && spots.length > 0 && (
           <div className="space-y-4">
             {spots.map((spot) => (
-              <PlaceCard
-                key={`${spot.type}_${spot.id}`}
-                element={spot}
-              />
+              <PlaceCard key={`${spot.type}_${spot.id}`} element={spot} />
             ))}
           </div>
         )}
@@ -160,9 +199,7 @@ function TouristSpotsContent() {
 
         <NeonCard padding="sm">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
-              Datakilde
-            </span>
+            <span className="text-sm text-muted-foreground">Datakilde</span>
             <a
               href="https://www.openstreetmap.org/copyright"
               target="_blank"
