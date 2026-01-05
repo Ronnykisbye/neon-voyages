@@ -1,6 +1,6 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plane } from "lucide-react";
+import { Plane, MapPin } from "lucide-react";
 import { DestinationInput } from "@/components/DestinationInput";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { DaysStepper } from "@/components/DaysStepper";
@@ -13,6 +13,8 @@ import { differenceInDays } from "date-fns";
 const Index = () => {
   const navigate = useNavigate();
   const { trip, setTrip, isValid, hasLocation } = useTrip();
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
 
   useEffect(() => {
     // Sync days with date range
@@ -44,6 +46,49 @@ const Index = () => {
     if (isValid && hasLocation) {
       navigate("/menu");
     }
+  };
+
+  // ============================================================
+  // AFSNIT – GPS “Her og nu”
+  // ============================================================
+  const handleUseGpsNow = () => {
+    if (!navigator.geolocation) {
+      setGpsError("GPS understøttes ikke på denne enhed");
+      return;
+    }
+
+    setGpsLoading(true);
+    setGpsError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const now = new Date();
+
+        setTrip({
+          destination: "Min lokation",
+          location: {
+            lat: latitude,
+            lon: longitude,
+          },
+          startDate: now,
+          endDate: now,
+          days: 1,
+        });
+
+        setGpsLoading(false);
+        navigate("/menu"); // 👉 direkte videre
+      },
+      (error) => {
+        setGpsLoading(false);
+        setGpsError("Kunne ikke hente din lokation. Tillad GPS for at fortsætte.");
+        console.error("GPS error:", error);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+      }
+    );
   };
 
   // Show validation message based on what's missing
@@ -80,6 +125,7 @@ const Index = () => {
 
       {/* Main Form */}
       <main className="flex-1 space-y-6">
+        {/* ================= Destination ================= */}
         <section className="space-y-2">
           <h2 className="text-lg font-semibold text-foreground">
             Hvor skal du hen?
@@ -96,6 +142,24 @@ const Index = () => {
           )}
         </section>
 
+        {/* ================= GPS Her og nu ================= */}
+        <section className="space-y-2">
+          <NeonButton
+            variant="secondary"
+            size="lg"
+            className="w-full"
+            onClick={handleUseGpsNow}
+            disabled={gpsLoading}
+          >
+            <MapPin className="h-5 w-5 mr-2" />
+            {gpsLoading ? "Finder din lokation..." : "Brug min GPS (her og nu)"}
+          </NeonButton>
+          {gpsError && (
+            <p className="text-sm text-destructive text-center">{gpsError}</p>
+          )}
+        </section>
+
+        {/* ================= Dates ================= */}
         <section className="space-y-2">
           <h2 className="text-lg font-semibold text-foreground">
             Hvornår rejser du?
@@ -108,6 +172,7 @@ const Index = () => {
           />
         </section>
 
+        {/* ================= Days ================= */}
         <section>
           <DaysStepper value={trip.days} onChange={handleDaysChange} />
           <p className="text-xs text-muted-foreground mt-2">
