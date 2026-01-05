@@ -1,3 +1,6 @@
+// ============================================================================
+// AFSNIT 00 – Imports
+// ============================================================================
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plane, MapPin } from "lucide-react";
@@ -10,12 +13,19 @@ import { useTrip } from "@/context/TripContext";
 import { type LocationResult } from "@/services/geocoding";
 import { differenceInDays } from "date-fns";
 
+// ============================================================================
+// AFSNIT 01 – Component
+// ============================================================================
 const Index = () => {
   const navigate = useNavigate();
   const { trip, setTrip, isValid, hasLocation } = useTrip();
+
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
 
+  // --------------------------------------------------------------------------
+  // AFSNIT 02 – Effects
+  // --------------------------------------------------------------------------
   useEffect(() => {
     // Sync days with date range
     if (trip.startDate && trip.endDate) {
@@ -26,6 +36,9 @@ const Index = () => {
     }
   }, [trip.startDate, trip.endDate, trip.days, setTrip]);
 
+  // --------------------------------------------------------------------------
+  // AFSNIT 03 – Handlers
+  // --------------------------------------------------------------------------
   const handleDestinationChange = (value: string, location?: LocationResult) => {
     setTrip({ destination: value, location });
   };
@@ -48,50 +61,119 @@ const Index = () => {
     }
   };
 
-  // ============================================================
-  // AFSNIT – GPS “Her og nu”
-  // ============================================================
-  const handleUseGpsNow = () => {
+  // --------------------------------------------------------------------------
+  // AFSNIT 04 – GPS “Her og nu” (robust + retry)
+  // --------------------------------------------------------------------------
+  const applyGpsTripAndGo = (lat: number, lon: number) => {
+    const now = new Date();
+    setTrip({
+      destination: "Min lokation",
+      location: { lat, lon },
+      startDate: now,
+      endDate: now,
+      days: 1,
+    });
+    navigate("/menu");
+  };
+
+  const friendlyGpsError = (code?: number) => {
+    // code: 1=PERMISSION_DENIED, 2=POSITION_UNAVAILABLE, 3=TIMEOUT
+    if (code === 1) {
+      return "GPS er blokeret. Tillad lokation i browseren (lås-ikonet i adresselinjen) og prøv igen.";
+    }
+    if (code === 2) {
+      return "GPS kunne ikke finde din lokation. Tænd Windows Lokation, eller prøv igen på Wi-Fi.";
+    }
+    if (code === 3) {
+      return "GPS tog for lang tid. Prøver igen… (tip: tænd Windows Lokation og prøv på Wi-Fi)";
+    }
+    return "Kunne ikke hente din lokation. Tillad GPS og prøv igen.";
+  };
+
+  const tryGetPosition = (
+    options: PositionOptions,
+    onSuccess: (pos: GeolocationPosition) => void,
+    onError: (err: GeolocationPositionError) => void
+  ) => {
+    navigator.geolocation.getCurrentPosition(onSuccess, onError, options);
+  };
+
+  const handleUseGpsNow = async () => {
     if (!navigator.geolocation) {
-      setGpsError("GPS understøttes ikke på denne enhed");
+      setGpsError("GPS understøttes ikke på denne enhed/browser.");
       return;
     }
 
     setGpsLoading(true);
     setGpsError(null);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        const now = new Date();
-
-        setTrip({
-          destination: "Min lokation",
-          location: {
-            lat: latitude,
-            lon: longitude,
-          },
-          startDate: now,
-          endDate: now,
-          days: 1,
-        });
-
+    // 1) Hvis browseren understøtter Permissions API, så kan vi give bedre besked ved “denied”
+    try {
+      // @ts-expect-error: permissions kan mangle i nogle browsere
+      const perm = await navigator.permissions?.query?.({ name: "geolocation" });
+      if (perm?.state === "denied") {
         setGpsLoading(false);
-        navigate("/menu"); // 👉 direkte videre
-      },
-      (error) => {
+        setGpsError(
+          "GPS er blokeret i browseren. Klik på låsen ved adressen → Tillad lokation → prøv igen."
+        );
+        return;
+      }
+    } catch {
+      // Ignorer – permissions API findes ikke overalt
+    }
+
+    // 2) Første forsøg: høj præcision (god på mobil, men kan timeoute på desktop)
+    const optionsHigh: PositionOptions = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0,
+    };
+
+    // 3) Fallback: lavere præcision + længere timeout + cache (bedre på PC)
+    const optionsFallback: PositionOptions = {
+      enableHighAccuracy: false,
+      timeout: 20000,
+      maximumAge: 600000, // 10 min cache er OK til “her og nu”
+    };
+
+    tryGetPosition(
+      optionsHigh,
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
         setGpsLoading(false);
-        setGpsError("Kunne ikke hente din lokation. Tillad GPS for at fortsætte.");
-        console.error("GPS error:", error);
+        applyGpsTripAndGo(latitude, longitude);
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
+      (err) => {
+        // Timeout / utilgængelig → prøv fallback én gang
+        const msg = friendlyGpsError(err.code);
+        setGpsError(msg);
+
+        if (err.code === 2 || err.code === 3) {
+          tryGetPosition(
+            optionsFallback,
+            (pos2) => {
+              const { latitude, longitude } = pos2.coords;
+              setGpsLoading(false);
+              setGpsError(null);
+              applyGpsTripAndGo(latitude, longitude);
+            },
+            (err2) => {
+              setGpsLoading(false);
+              setGpsError(friendlyGpsError(err2.code));
+            }
+          );
+          return;
+        }
+
+        // Permission denied eller andet
+        setGpsLoading(false);
       }
     );
   };
 
-  // Show validation message based on what's missing
+  // --------------------------------------------------------------------------
+  // AFSNIT 05 – Validation
+  // --------------------------------------------------------------------------
   const getValidationMessage = () => {
     if (!trip.destination) {
       return "Vælg en destination for at fortsætte";
@@ -107,6 +189,9 @@ const Index = () => {
 
   const canContinue = isValid && hasLocation;
 
+  // --------------------------------------------------------------------------
+  // AFSNIT 06 – UI
+  // --------------------------------------------------------------------------
   return (
     <div className="min-h-screen flex flex-col px-4 py-6 max-w-lg mx-auto animate-fade-in">
       {/* Header */}
@@ -125,7 +210,6 @@ const Index = () => {
 
       {/* Main Form */}
       <main className="flex-1 space-y-6">
-        {/* ================= Destination ================= */}
         <section className="space-y-2">
           <h2 className="text-lg font-semibold text-foreground">
             Hvor skal du hen?
@@ -142,7 +226,7 @@ const Index = () => {
           )}
         </section>
 
-        {/* ================= GPS Her og nu ================= */}
+        {/* GPS Her og nu */}
         <section className="space-y-2">
           <NeonButton
             variant="secondary"
@@ -154,12 +238,12 @@ const Index = () => {
             <MapPin className="h-5 w-5 mr-2" />
             {gpsLoading ? "Finder din lokation..." : "Brug min GPS (her og nu)"}
           </NeonButton>
+
           {gpsError && (
             <p className="text-sm text-destructive text-center">{gpsError}</p>
           )}
         </section>
 
-        {/* ================= Dates ================= */}
         <section className="space-y-2">
           <h2 className="text-lg font-semibold text-foreground">
             Hvornår rejser du?
@@ -172,7 +256,6 @@ const Index = () => {
           />
         </section>
 
-        {/* ================= Days ================= */}
         <section>
           <DaysStepper value={trip.days} onChange={handleDaysChange} />
           <p className="text-xs text-muted-foreground mt-2">
