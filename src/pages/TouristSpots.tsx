@@ -21,17 +21,19 @@ import {
   type OverpassElement,
 } from "@/services/overpass";
 
+// ✅ Fælles kontrol-komponent (km-vælger)
+import SearchControls, {
+  readRadiusKm,
+  toMeters,
+  type RadiusKm,
+} from "@/components/SearchControls";
+
 // ============================================================================
 // AFSNIT 01 – Typer & konstanter
 // ============================================================================
 type Scope = "nearby" | "dk";
 
-const RADIUS_OPTIONS_KM = [2, 4, 6, 10, 20] as const;
-type RadiusKm = (typeof RADIUS_OPTIONS_KM)[number];
-
-function toMeters(km: number) {
-  return Math.round(km * 1000);
-}
+const DEFAULT_RADIUS_KM: RadiusKm = 6;
 
 // ============================================================================
 // AFSNIT 02 – Overpass query builder (Seværdigheder)
@@ -74,19 +76,21 @@ function TouristSpotsContent() {
   const [spots, setSpots] = useState<OverpassElement[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [radiusUsedMeters, setRadiusUsedMeters] = useState<number>(toMeters(6));
+
+  // ✅ Fælles radius-setting (gemmes i localStorage via SearchControls)
+  const [baseRadiusKm, setBaseRadiusKm] = useState<RadiusKm>(() =>
+    readRadiusKm(DEFAULT_RADIUS_KM)
+  );
+
+  // Hvad vi endte med at søge i (kan udvide automatisk hvis få resultater)
+  const [radiusUsedMeters, setRadiusUsedMeters] = useState<number>(
+    toMeters(baseRadiusKm)
+  );
 
   // Valg: nærområde eller kun Danmark (gemmes lokalt)
   const [scope, setScope] = useState<Scope>(() => {
     const saved = window.localStorage.getItem("nv_spots_scope");
     return saved === "dk" ? "dk" : "nearby";
-  });
-
-  // Valg: basis-radius (km) (gemmes lokalt)
-  const [baseRadiusKm, setBaseRadiusKm] = useState<RadiusKm>(() => {
-    const saved = Number(window.localStorage.getItem("nv_spots_radius_km"));
-    if (RADIUS_OPTIONS_KM.includes(saved as RadiusKm)) return saved as RadiusKm;
-    return 6;
   });
 
   // --------------------------------------------------------------------------
@@ -125,7 +129,6 @@ function TouristSpotsContent() {
       }
 
       // Radius-trin: start med valgt radius, og udvid hvis der er få resultater
-      // (så København stadig får masser, men Helsingør kan udvide lidt hvis nødvendigt)
       const baseMeters = toMeters(baseRadiusKm);
       const radiusSteps = Array.from(
         new Set([baseMeters, Math.max(12000, baseMeters * 2), 20000])
@@ -186,7 +189,7 @@ function TouristSpotsContent() {
 
       <main className="flex-1 space-y-4 pb-6">
         {/* ------------------------------------------------------------
-           AFSNIT 04A – Info + kontroller (afstand + land)
+           AFSNIT 04A – Info + kontroller (km-vælger + scope)
         ------------------------------------------------------------ */}
         <NeonCard padding="sm">
           <div className="flex items-start gap-2">
@@ -196,59 +199,41 @@ function TouristSpotsContent() {
                 Søger inden for {Math.round(radiusUsedMeters / 1000)} km fra centrum.
               </p>
 
-              {/* Kontroller */}
-              <div className="mt-3 grid grid-cols-1 gap-3">
-                {/* Afstand */}
-                <div className="flex items-center justify-between gap-3">
-                  <label className="text-sm text-muted-foreground" htmlFor="radius">
-                    Afstand:
-                  </label>
+              {/* ✅ Fælles km-vælger (SearchControls) */}
+              <div className="mt-3">
+                <SearchControls
+                  showRadius={true}
+                  showScope={false}
+                  radiusKm={baseRadiusKm}
+                  onRadiusChange={(km) => {
+                    setBaseRadiusKm(km);
+                    // Skift radius => hent nye data nu (force refresh)
+                    setTimeout(() => fetchSpots({ forceRefresh: true }), 0);
+                  }}
+                />
+              </div>
 
-                  <select
-                    id="radius"
-                    className="w-52 rounded-lg border bg-background px-3 py-2 text-sm"
-                    value={baseRadiusKm}
-                    onChange={(e) => {
-                      const next = Number(e.target.value) as RadiusKm;
-                      setBaseRadiusKm(next);
-                      window.localStorage.setItem(
-                        "nv_spots_radius_km",
-                        String(next)
-                      );
-                      // Skift radius => hent nye data nu (force refresh)
-                      setTimeout(() => fetchSpots({ forceRefresh: true }), 0);
-                    }}
-                  >
-                    {RADIUS_OPTIONS_KM.map((km) => (
-                      <option key={km} value={km}>
-                        {km} km
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              {/* Behold scope-vælgeren (nærområde vs DK) for ikke at fjerne funktionalitet */}
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <label className="text-sm text-muted-foreground" htmlFor="scope">
+                  Område:
+                </label>
 
-                {/* Landescope */}
-                <div className="flex items-center justify-between gap-3">
-                  <label className="text-sm text-muted-foreground" htmlFor="scope">
-                    Område:
-                  </label>
-
-                  <select
-                    id="scope"
-                    className="w-52 rounded-lg border bg-background px-3 py-2 text-sm"
-                    value={scope}
-                    onChange={(e) => {
-                      const next = e.target.value === "dk" ? "dk" : "nearby";
-                      setScope(next);
-                      window.localStorage.setItem("nv_spots_scope", next);
-                      // Skift scope => hent nye data nu (force refresh)
-                      setTimeout(() => fetchSpots({ forceRefresh: true }), 0);
-                    }}
-                  >
-                    <option value="nearby">Nærområde (kan krydse grænser)</option>
-                    <option value="dk">Kun Danmark</option>
-                  </select>
-                </div>
+                <select
+                  id="scope"
+                  className="w-52 rounded-lg border bg-background px-3 py-2 text-sm"
+                  value={scope}
+                  onChange={(e) => {
+                    const next = e.target.value === "dk" ? "dk" : "nearby";
+                    setScope(next);
+                    window.localStorage.setItem("nv_spots_scope", next);
+                    // Skift scope => hent nye data nu (force refresh)
+                    setTimeout(() => fetchSpots({ forceRefresh: true }), 0);
+                  }}
+                >
+                  <option value="nearby">Nærområde (kan krydse grænser)</option>
+                  <option value="dk">Kun Danmark</option>
+                </select>
               </div>
             </div>
           </div>
