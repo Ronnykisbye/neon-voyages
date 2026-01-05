@@ -1,15 +1,44 @@
+// ============================================================================
+// AFSNIT 00 – Imports
+// ============================================================================
 import React from "react";
-import { ExternalLink, Globe, Calendar, MapPin, Info, Facebook, Search } from "lucide-react";
+import {
+  ExternalLink,
+  Globe,
+  Calendar,
+  MapPin,
+  Info,
+  Facebook,
+  Search,
+} from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { NeonCard } from "@/components/ui/NeonCard";
-import { NeonButton } from "@/components/ui/NeonButton";
 import { TripGuard } from "@/components/TripGuard";
 import { TripDebug } from "@/components/TripDebug";
 import { useTrip } from "@/context/TripContext";
 
+// ✅ Fælles km-vælger
+import SearchControls, {
+  readRadiusKm,
+  type RadiusKm,
+} from "@/components/SearchControls";
+
+// ============================================================================
+// AFSNIT 01 – Konstanter
+// ============================================================================
+const DEFAULT_RADIUS_KM: RadiusKm = 6;
+
+// ============================================================================
+// AFSNIT 02 – Content
+// ============================================================================
 function EventsContent() {
   const { trip } = useTrip();
   const destination = encodeURIComponent(trip.destination);
+
+  // Fælles radius (bruges kun til kontekst/UX her)
+  const [radiusKm, setRadiusKm] = React.useState<RadiusKm>(() =>
+    readRadiusKm(DEFAULT_RADIUS_KM)
+  );
 
   const externalLinks = [
     {
@@ -27,7 +56,7 @@ function EventsContent() {
     {
       label: "Tripadvisor Aktiviteter",
       description: "Ting at lave på Tripadvisor",
-      url: `https://www.tripadvisor.com/Search?q=${destination}&searchSessionId=&searchNearby=false&geo=1&ssrc=a`,
+      url: `https://www.tripadvisor.com/Search?q=${destination}`,
       icon: <Globe className="h-5 w-5" />,
     },
     {
@@ -44,23 +73,45 @@ function EventsContent() {
     },
   ];
 
+  // ==========================================================================
+  // AFSNIT 03 – UI
+  // ==========================================================================
   return (
     <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
       <PageHeader title="Lokale tips & kalender" subtitle={trip.destination} />
 
       <main className="flex-1 space-y-4 pb-6">
-        {/* Info card */}
+        {/* ------------------------------------------------------------
+           AFSNIT 03A – Info + km-vælger
+        ------------------------------------------------------------ */}
         <NeonCard padding="sm">
           <div className="flex items-start gap-2">
             <Info className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Events og lokale begivenheder kræver direkte søgning på de officielle platforme. 
-              Brug links nedenfor til at finde aktuelle events.
-            </p>
+            <div className="w-full">
+              <p className="text-sm text-muted-foreground">
+                Søger inden for {radiusKm} km fra centrum.
+              </p>
+
+              <div className="mt-3">
+                <SearchControls
+                  showRadius={true}
+                  showScope={false}
+                  radiusKm={radiusKm}
+                  onRadiusChange={(km) => setRadiusKm(km)}
+                />
+              </div>
+
+              <p className="mt-3 text-xs text-muted-foreground">
+                Events og lokale begivenheder kræver direkte søgning på de
+                officielle platforme. Vi henter ingen data automatisk.
+              </p>
+            </div>
           </div>
         </NeonCard>
 
-        {/* External links */}
+        {/* ------------------------------------------------------------
+           AFSNIT 03B – Eksterne links
+        ------------------------------------------------------------ */}
         <div className="space-y-3">
           {externalLinks.map((link) => (
             <a
@@ -75,18 +126,21 @@ function EventsContent() {
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium text-foreground">{link.label}</h3>
-                <p className="text-sm text-muted-foreground">{link.description}</p>
+                <p className="text-sm text-muted-foreground">
+                  {link.description}
+                </p>
               </div>
               <ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             </a>
           ))}
         </div>
 
-        {/* Source note */}
+        {/* ------------------------------------------------------------
+           AFSNIT 03C – Kilde-note
+        ------------------------------------------------------------ */}
         <NeonCard padding="sm">
           <p className="text-xs text-muted-foreground text-center">
-            Alle links åbner i en ny fane på de officielle platforme. 
-            Vi henter ikke data fra disse sider.
+            Alle links åbner i en ny fane på de officielle platforme.
           </p>
         </NeonCard>
       </main>
@@ -96,6 +150,9 @@ function EventsContent() {
   );
 }
 
+// ============================================================================
+// AFSNIT 04 – Export
+// ============================================================================
 export default function Events() {
   return (
     <TripGuard>
