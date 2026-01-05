@@ -66,10 +66,19 @@ export function DateRangePicker({
               selected={startDate}
               onSelect={(date) => {
                 onStartDateChange(date);
+
+                // Hvis ankomst flyttes efter allerede valgt afrejse, så justér afrejse (som før)
                 if (date && endDate && date > endDate) {
                   onEndDateChange(addDays(date, 1));
                 }
-                setOpenStart(false); // ✅ LUK dropdown
+
+                // ✅ Luk Ankomst popover
+                setOpenStart(false);
+
+                // ✅ Åbn Afrejse popover automatisk (næste tick for stabilt UI)
+                if (date) {
+                  setTimeout(() => setOpenEnd(true), 0);
+                }
               }}
               disabled={(date) => date < new Date()}
               initialFocus
