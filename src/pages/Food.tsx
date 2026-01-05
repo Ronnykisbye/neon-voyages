@@ -1,5 +1,8 @@
-import React, { useState, useCallback } from "react";
-import { Utensils, Coffee, Sun, Moon, ExternalLink, RefreshCw } from "lucide-react";
+// ============================================================================
+// AFSNIT 00 – Imports
+// ============================================================================
+import React, { useState, useCallback, useEffect } from "react";
+import { Utensils, Coffee, Sun, Moon, ExternalLink, Info } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { NeonCard } from "@/components/ui/NeonCard";
 import { NeonButton } from "@/components/ui/NeonButton";
@@ -10,17 +13,32 @@ import { ErrorState } from "@/components/ErrorState";
 import { TripGuard } from "@/components/TripGuard";
 import { TripDebug } from "@/components/TripDebug";
 import { useTrip } from "@/context/TripContext";
-import { 
-  queryOverpass, 
-  getCacheKey, 
-  getFromCache, 
+import {
+  queryOverpass,
+  getCacheKey,
+  getFromCache,
   setCache,
   type OverpassElement,
   type MealType,
-  buildFoodQuery
+  buildFoodQuery,
 } from "@/services/overpass";
 
-const mealCategories: Record<MealType, { icon: React.ReactNode; label: string; description: string }> = {
+// Fælles km-vælger
+import SearchControls, {
+  readRadiusKm,
+  toMeters,
+  type RadiusKm,
+} from "@/components/SearchControls";
+
+// ============================================================================
+// AFSNIT 01 – Konstanter & opsætning
+// ============================================================================
+const DEFAULT_RADIUS_KM: RadiusKm = 6;
+
+const mealCategories: Record<
+  MealType,
+  { icon: React.ReactNode; label: string; description: string }
+> = {
   breakfast: {
     icon: <Coffee className="h-5 w-5" />,
     label: "Morgenmad",
@@ -43,93 +61,156 @@ const mealCategories: Record<MealType, { icon: React.ReactNode; label: string; d
   },
 };
 
+// ============================================================================
+// AFSNIT 02 – Hovedkomponent (Content)
+// ============================================================================
 function FoodContent() {
   const { trip } = useTrip();
+
+  // --------------------------------------------------------------------------
+  // AFSNIT 02A – State
+  // --------------------------------------------------------------------------
   const [mealType, setMealType] = useState<MealType | null>(null);
   const [places, setPlaces] = useState<OverpassElement[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchPlaces = useCallback(async (meal: MealType) => {
-    if (!trip.location) return;
+  // Fælles radius
+  const [baseRadiusKm, setBaseRadiusKm] = useState<RadiusKm>(() =>
+    readRadiusKm(DEFAULT_RADIUS_KM)
+  );
 
-    setLoading(true);
-    setError(null);
+  const [radiusUsedMeters, setRadiusUsedMeters] = useState<number>(
+    toMeters(baseRadiusKm)
+  );
 
-    const { lat, lon } = trip.location;
-    const cacheKey = getCacheKey(lat, lon, `food-${meal}`);
-    
-    // Check cache first (30 min TTL)
-    const cached = getFromCache<OverpassElement[]>(cacheKey);
-    if (cached) {
-      setPlaces(cached);
-      setLoading(false);
-      return;
-    }
+  // --------------------------------------------------------------------------
+  // AFSNIT 02B – Fetch funktion
+  // --------------------------------------------------------------------------
+  const fetchPlaces = useCallback(
+    async (meal: MealType, opts?: { forceRefresh?: boolean }) => {
+      if (!trip.location) return;
 
-    // Try with increasing radius: 3km, 6km, 10km
-    const radiusSteps = [3000, 6000, 10000];
-    
-    for (const radius of radiusSteps) {
-      const query = buildFoodQuery(lat, lon, radius, meal);
-      const result = await queryOverpass(query);
+      const forceRefresh = opts?.forceRefresh === true;
 
-      if (result.error) {
-        if (radius === radiusSteps[radiusSteps.length - 1]) {
-          setError(result.error);
+      setLoading(true);
+      setError(null);
+
+      const { lat, lon } = trip.location;
+      const cacheKey = getCacheKey(
+        lat,
+        lon,
+        `food-${meal}-r${baseRadiusKm}km`
+      );
+
+      if (!forceRefresh) {
+        const cached = getFromCache<OverpassElement[]>(cacheKey);
+        if (cached) {
+          setPlaces(cached);
           setLoading(false);
           return;
         }
-        continue;
       }
 
-      const results = (result.data || []).filter(el => el.tags?.name);
+      const baseMeters = toMeters(baseRadiusKm);
+      const radiusSteps = Array.from(
+        new Set([baseMeters, Math.max(6000, baseMeters * 2), 20000])
+      ).sort((a, b) => a - b);
 
-      if (results.length >= 5 || radius === radiusSteps[radiusSteps.length - 1]) {
-        setPlaces(results.slice(0, 30));
-        // Cache for 30 minutes
-        const cacheEntry = { data: results.slice(0, 30), timestamp: Date.now() };
-        try {
-          localStorage.setItem(cacheKey, JSON.stringify(cacheEntry));
-        } catch {}
-        setLoading(false);
-        return;
+      for (const radius of radiusSteps) {
+        const query = buildFoodQuery(lat, lon, radius, meal);
+        const result = await queryOverpass(query);
+
+        if (result.error) {
+          if (radius === radiusSteps[radiusSteps.length - 1]) {
+            setError(result.error);
+            setLoading(false);
+            return;
+          }
+          continue;
+        }
+
+        const results = (result.data || []).filter((el) => el.tags?.name);
+
+        if (
+          results.length >= 5 ||
+          radius === radiusSteps[radiusSteps.length - 1]
+        ) {
+          const sliced = results.slice(0, 30);
+          setPlaces(sliced);
+          setRadiusUsedMeters(radius);
+          setCache(cacheKey, sliced);
+          setLoading(false);
+          return;
+        }
       }
-    }
 
-    setError("Overpass er travl lige nu – prøv igen om lidt");
-    setLoading(false);
-  }, [trip.location]);
+      setPlaces([]);
+      setLoading(false);
+    },
+    [trip.location, baseRadiusKm]
+  );
 
-  const handleMealSelect = (meal: MealType) => {
-    setMealType(meal);
-    fetchPlaces(meal);
-  };
-
-  const handleRetry = () => {
+  // --------------------------------------------------------------------------
+  // AFSNIT 02C – Re-fetch når radius ændres
+  // --------------------------------------------------------------------------
+  useEffect(() => {
     if (mealType) {
-      fetchPlaces(mealType);
+      fetchPlaces(mealType, { forceRefresh: true });
     }
-  };
+  }, [baseRadiusKm, mealType, fetchPlaces]);
 
+  // ========================================================================
+  // AFSNIT 03 – UI
+  // ========================================================================
   return (
     <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
       <PageHeader title="Spisesteder" subtitle={trip.destination} />
 
       <main className="flex-1 space-y-4 pb-6">
-        {/* Meal Type Selection */}
+        {/* ------------------------------------------------------------
+           AFSNIT 03A – Info + km-vælger
+        ------------------------------------------------------------ */}
+        <NeonCard padding="sm">
+          <div className="flex items-start gap-2">
+            <Info className="h-4 w-4 mt-0.5 text-muted-foreground" />
+            <div className="w-full">
+              <p className="text-sm text-muted-foreground">
+                Søger inden for {Math.round(radiusUsedMeters / 1000)} km fra centrum.
+              </p>
+
+              <SearchControls
+                showRadius={true}
+                showScope={false}
+                radiusKm={baseRadiusKm}
+                onRadiusChange={(km) => setBaseRadiusKm(km)}
+              />
+            </div>
+          </div>
+        </NeonCard>
+
+        {/* ------------------------------------------------------------
+           AFSNIT 03B – Måltidsvalg
+        ------------------------------------------------------------ */}
         <div className="grid grid-cols-2 gap-3">
           {(["breakfast", "lunch", "dinner", "all"] as MealType[]).map((type) => (
             <NeonButton
               key={type}
               variant={mealType === type ? "default" : "menu"}
               size="default"
-              onClick={() => handleMealSelect(type)}
+              onClick={() => {
+                setMealType(type);
+                fetchPlaces(type, { forceRefresh: true });
+              }}
               className="flex-col gap-1 h-auto py-4"
             >
               {mealCategories[type].icon}
-              <span className="text-sm font-medium">{mealCategories[type].label}</span>
-              <span className="text-xs text-muted-foreground">{mealCategories[type].description}</span>
+              <span className="text-sm font-medium">
+                {mealCategories[type].label}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {mealCategories[type].description}
+              </span>
             </NeonButton>
           ))}
         </div>
@@ -154,7 +235,7 @@ function FoodContent() {
         )}
 
         {!loading && error && (
-          <ErrorState message={error} onRetry={handleRetry} />
+          <ErrorState message={error} onRetry={() => mealType && fetchPlaces(mealType)} />
         )}
 
         {!loading && !error && mealType && places.length > 0 && (
@@ -166,16 +247,18 @@ function FoodContent() {
         )}
 
         {!loading && !error && mealType && places.length === 0 && (
-          <EmptyState 
+          <EmptyState
             title="Ingen spisesteder fundet"
-            message={`Ingen ${mealCategories[mealType].label.toLowerCase()} steder fundet. Prøv at vælge en anden kategori eller et mere centralt område.`}
+            message={`Ingen ${mealCategories[
+              mealType
+            ].label.toLowerCase()} steder fundet. Prøv at øge afstanden.`}
           />
         )}
 
         {mealType && (
           <NeonCard padding="sm">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Kilder</span>
+              <span className="text-sm text-muted-foreground">Datakilde</span>
               <a
                 href="https://www.openstreetmap.org/"
                 target="_blank"
@@ -195,6 +278,9 @@ function FoodContent() {
   );
 }
 
+// ============================================================================
+// AFSNIT 04 – Export wrapper
+// ============================================================================
 export default function Food() {
   return (
     <TripGuard>
