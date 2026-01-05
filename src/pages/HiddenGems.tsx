@@ -22,22 +22,43 @@ import {
   type OverpassElement,
 } from "@/services/overpass";
 
+// ✅ Fælles kontrol-komponent (km-vælger)
+import SearchControls, {
+  readRadiusKm,
+  toMeters,
+  type RadiusKm,
+} from "@/components/SearchControls";
+
 // ============================================================================
-// AFSNIT 01 – Hovedkomponent (Content)
+// AFSNIT 01 – Konstanter
+// ============================================================================
+const DEFAULT_RADIUS_KM: RadiusKm = 6;
+
+// ============================================================================
+// AFSNIT 02 – Hovedkomponent (Content)
 // ============================================================================
 function HiddenGemsContent() {
   const { trip } = useTrip();
 
   // --------------------------------------------------------------------------
-  // AFSNIT 01A – State
+  // AFSNIT 02A – State
   // --------------------------------------------------------------------------
   const [gems, setGems] = useState<OverpassElement[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [radiusUsed, setRadiusUsed] = useState<number>(6000);
+
+  // Brug fælles radius-setting (gemmes i localStorage via SearchControls)
+  const [baseRadiusKm, setBaseRadiusKm] = useState<RadiusKm>(() =>
+    readRadiusKm(DEFAULT_RADIUS_KM)
+  );
+
+  // Hvad vi endte med at søge i (kan udvide automatisk hvis få resultater)
+  const [radiusUsedMeters, setRadiusUsedMeters] = useState<number>(
+    toMeters(baseRadiusKm)
+  );
 
   // --------------------------------------------------------------------------
-  // AFSNIT 01B – Fetch funktion (med forceRefresh)
+  // AFSNIT 02B – Fetch funktion (med forceRefresh)
   // --------------------------------------------------------------------------
   const fetchGems = useCallback(
     async (opts?: { forceRefresh?: boolean }) => {
@@ -53,7 +74,9 @@ function HiddenGemsContent() {
       setError(null);
 
       const { lat, lon } = trip.location;
-      const cacheKey = getCacheKey(lat, lon, "hidden-gems");
+
+      // Cache skal afhænge af radius-valg, ellers får du “forkerte” cached svar
+      const cacheKey = getCacheKey(lat, lon, `hidden-gems-r${baseRadiusKm}km`);
 
       // Cache først – men ikke hvis brugeren trykker “Søg igen”
       if (!forceRefresh) {
@@ -65,21 +88,22 @@ function HiddenGemsContent() {
         }
       }
 
-      // Radius-trin: 6km, 12km, 20km (robust)
-      const radiusSteps = [6000, 12000, 20000];
+      // Radius-trin: start med valgt radius, og udvid hvis der er få resultater
+      const baseMeters = toMeters(baseRadiusKm);
+      const radiusSteps = Array.from(
+        new Set([baseMeters, Math.max(12000, baseMeters * 2), 20000])
+      ).sort((a, b) => a - b);
 
-      for (const radius of radiusSteps) {
-        const query = buildHiddenGemsQuery(lat, lon, radius);
+      for (const radiusMeters of radiusSteps) {
+        const query = buildHiddenGemsQuery(lat, lon, radiusMeters);
         const result = await queryOverpass(query);
 
         if (result.error) {
-          // Sidste forsøg -> vis fejl
-          if (radius === radiusSteps[radiusSteps.length - 1]) {
+          if (radiusMeters === radiusSteps[radiusSteps.length - 1]) {
             setError(result.error);
             setLoading(false);
             return;
           }
-          // Ellers prøv større radius
           continue;
         }
 
@@ -87,10 +111,13 @@ function HiddenGemsContent() {
         const results = (result.data || []).filter((el) => el.tags?.name);
 
         // Stop hvis vi har “nok”, ellers prøv større radius
-        if (results.length >= 10 || radius === radiusSteps[radiusSteps.length - 1]) {
+        if (
+          results.length >= 10 ||
+          radiusMeters === radiusSteps[radiusSteps.length - 1]
+        ) {
           const sliced = results.slice(0, 30);
           setGems(sliced);
-          setRadiusUsed(radius);
+          setRadiusUsedMeters(radiusMeters);
           setCache(cacheKey, sliced);
           setLoading(false);
           return;
@@ -101,18 +128,18 @@ function HiddenGemsContent() {
       setGems([]);
       setLoading(false);
     },
-    [trip.location]
+    [trip.location, baseRadiusKm]
   );
 
   // --------------------------------------------------------------------------
-  // AFSNIT 01C – Auto-fetch på load
+  // AFSNIT 02C – Auto-fetch på load / når radius ændres
   // --------------------------------------------------------------------------
   useEffect(() => {
     fetchGems();
   }, [fetchGems]);
 
   // ========================================================================
-  // AFSNIT 02 – UI
+  // AFSNIT 03 – UI
   // ========================================================================
   return (
     <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
@@ -120,19 +147,32 @@ function HiddenGemsContent() {
 
       <main className="flex-1 space-y-4 pb-6">
         {/* ------------------------------------------------------------
-           AFSNIT 02A – Info kort (kort tekst: kun afstand)
+           AFSNIT 03A – Info kort + KM-vælger (fælles komponent)
         ------------------------------------------------------------ */}
         <NeonCard padding="sm">
           <div className="flex items-start gap-2">
             <Info className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Viser steder inden for {radiusUsed / 1000} km fra centrum.
-            </p>
+            <div className="w-full">
+              <p className="text-sm text-muted-foreground">
+                Søger inden for {Math.round(radiusUsedMeters / 1000)} km fra centrum.
+              </p>
+
+              <SearchControls
+                showRadius={true}
+                showScope={false}
+                radiusKm={baseRadiusKm}
+                onRadiusChange={(km) => {
+                  setBaseRadiusKm(km);
+                  // Skift radius => hent nye data nu (force refresh)
+                  setTimeout(() => fetchGems({ forceRefresh: true }), 0);
+                }}
+              />
+            </div>
           </div>
         </NeonCard>
 
         {/* ------------------------------------------------------------
-           AFSNIT 02B – Statuslinje + Søg igen (force refresh)
+           AFSNIT 03B – Statuslinje + Søg igen (force refresh)
         ------------------------------------------------------------ */}
         <div className="flex items-center justify-between gap-3">
           <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
@@ -140,8 +180,8 @@ function HiddenGemsContent() {
             {loading
               ? "Søger i OpenStreetMap..."
               : gems.length > 0
-                ? "Resultater fundet"
-                : "Ingen data fundet i dette område"}
+              ? "Resultater fundet"
+              : "Ingen data fundet i dette område"}
           </div>
 
           <NeonButton
@@ -156,7 +196,7 @@ function HiddenGemsContent() {
         </div>
 
         {/* ------------------------------------------------------------
-           AFSNIT 02C – Loading (skeletons)
+           AFSNIT 03C – Loading (skeletons)
         ------------------------------------------------------------ */}
         {loading && (
           <div className="space-y-4">
@@ -167,14 +207,17 @@ function HiddenGemsContent() {
         )}
 
         {/* ------------------------------------------------------------
-           AFSNIT 02D – Error state
+           AFSNIT 03D – Error state
         ------------------------------------------------------------ */}
         {!loading && error && (
-          <ErrorState message={error} onRetry={() => fetchGems({ forceRefresh: true })} />
+          <ErrorState
+            message={error}
+            onRetry={() => fetchGems({ forceRefresh: true })}
+          />
         )}
 
         {/* ------------------------------------------------------------
-           AFSNIT 02E – Resultater
+           AFSNIT 03E – Resultater
         ------------------------------------------------------------ */}
         {!loading && !error && gems.length > 0 && (
           <div className="space-y-4">
@@ -185,17 +228,17 @@ function HiddenGemsContent() {
         )}
 
         {/* ------------------------------------------------------------
-           AFSNIT 02F – Empty state
+           AFSNIT 03F – Empty state
         ------------------------------------------------------------ */}
         {!loading && !error && gems.length === 0 && (
           <EmptyState
             title="Ingen skjulte perler fundet"
-            message="Tryk 'Søg igen' eller prøv en mere central destination."
+            message="Tryk 'Søg igen' eller prøv at øge afstanden."
           />
         )}
 
         {/* ------------------------------------------------------------
-           AFSNIT 02G – Datakilde
+           AFSNIT 03G – Datakilde
         ------------------------------------------------------------ */}
         <NeonCard padding="sm">
           <div className="flex items-center justify-between">
@@ -214,7 +257,7 @@ function HiddenGemsContent() {
       </main>
 
       {/* ------------------------------------------------------------
-         AFSNIT 02H – Debug (kan senere fjernes i production)
+         AFSNIT 03H – Debug (kan senere fjernes i production)
       ------------------------------------------------------------ */}
       <TripDebug />
     </div>
@@ -222,7 +265,7 @@ function HiddenGemsContent() {
 }
 
 // ============================================================================
-// AFSNIT 03 – Export wrapper med TripGuard
+// AFSNIT 04 – Export wrapper med TripGuard
 // ============================================================================
 export default function HiddenGems() {
   return (
