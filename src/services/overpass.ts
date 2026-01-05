@@ -97,7 +97,10 @@ export async function queryOverpass(
 ): Promise<{ data: OverpassElement[] | null; error: string | null }> {
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
-      const response = await fetchWithTimeout(endpoint, `data=${encodeURIComponent(query)}`);
+      const response = await fetchWithTimeout(
+        endpoint,
+        `data=${encodeURIComponent(query)}`
+      );
 
       if (!response.ok) {
         console.warn(`Overpass endpoint ${endpoint} returned ${response.status}`);
@@ -106,7 +109,6 @@ export async function queryOverpass(
 
       const contentType = response.headers.get("content-type") || "";
       if (!contentType.includes("application/json")) {
-        // Likely an HTML error page
         console.warn(`Overpass endpoint ${endpoint} returned non-JSON response`);
         continue;
       }
@@ -122,15 +124,40 @@ export async function queryOverpass(
   return { data: null, error: "Overpass er travl lige nu – prøv igen om lidt" };
 }
 
-export function getElementLatLon(element: OverpassElement): { lat: number; lon: number } | null {
-  if (element.type === "node" && typeof element.lat === "number" && typeof element.lon === "number") {
+// ============================================================================
+// AFSNIT 01 – Koordinater helper
+// ============================================================================
+
+export function getElementLatLon(
+  element: OverpassElement
+): { lat: number; lon: number } | null {
+  if (
+    element.type === "node" &&
+    typeof element.lat === "number" &&
+    typeof element.lon === "number"
+  ) {
     return { lat: element.lat, lon: element.lon };
   }
-  if (element.center && typeof element.center.lat === "number" && typeof element.center.lon === "number") {
+  if (
+    element.center &&
+    typeof element.center.lat === "number" &&
+    typeof element.center.lon === "number"
+  ) {
     return { lat: element.center.lat, lon: element.center.lon };
   }
   return null;
 }
+
+// ✅ Bevar gammelt API-navn som PlaceCard forventer
+export function getCoordinates(
+  element: OverpassElement
+): { lat: number; lon: number } | null {
+  return getElementLatLon(element);
+}
+
+// ============================================================================
+// AFSNIT 02 – Labels & beskrivelser
+// ============================================================================
 
 export function getCategoryLabel(tags: Record<string, string>): string {
   if (tags.tourism === "museum") return "Museum";
@@ -161,35 +188,59 @@ export function getCategoryLabel(tags: Record<string, string>): string {
 
 export function getShortDescription(tags: Record<string, string>): string {
   if (tags.description) return tags.description;
-  if (tags["short_description"]) (tags["short_description"] as string) || "";
-  if (tags.tourism === "museum") return "Museer byder typisk på udstillinger, samlinger og kulturhistorie.";
-  if (tags.tourism === "gallery") return "Gallerier viser kunst – ofte lokale og skiftende udstillinger.";
+  if (tags["short_description"]) return tags["short_description"] as string;
+
+  if (tags.tourism === "museum")
+    return "Museer byder typisk på udstillinger, samlinger og kulturhistorie.";
+  if (tags.tourism === "gallery")
+    return "Gallerier viser kunst – ofte lokale og skiftende udstillinger.";
   if (tags.tourism === "viewpoint") return "Et godt sted til udsigt og billeder.";
-  if (tags.tourism === "attraction") return "Turistattraktioner er populære besøgs- og oplevelsesmål.";
+  if (tags.tourism === "attraction")
+    return "Turistattraktioner er populære besøgs- og oplevelsesmål.";
   if (tags.amenity === "cafe") return "Café med kaffe, te og lette måltider.";
   if (tags.amenity === "bakery") return "Bageri med brød, kager og ofte kaffe.";
-  if (tags.amenity === "restaurant") return "Restaurant med servering og typisk flere retter.";
-  if (tags.amenity === "fast_food") return "Hurtig mad – takeaway eller enkel servering.";
-  if (tags.amenity === "marketplace") return "Marked med boder – ofte lokale varer og mad.";
-  if (tags.leisure === "park") return "Grønt område til gåture, afslapning og hygge.";
+  if (tags.amenity === "restaurant")
+    return "Restaurant med servering og typisk flere retter.";
+  if (tags.amenity === "fast_food")
+    return "Hurtig mad – takeaway eller enkel servering.";
+  if (tags.amenity === "marketplace")
+    return "Marked med boder – ofte lokale varer og mad.";
+  if (tags.leisure === "park")
+    return "Grønt område til gåture, afslapning og hygge.";
   if (tags.historic) return "Historisk sted med lokal betydning.";
   return "Et sted i området.";
 }
 
+// ✅ Bevar gammelt API-navn som PlaceCard forventer
+export function getCategoryDescription(tags: Record<string, string>): string {
+  return getShortDescription(tags);
+}
+
+// ============================================================================
+// AFSNIT 03 – Queries
+// ============================================================================
+
 export type MealType = "breakfast" | "lunch" | "dinner" | "all";
 
-export function buildFoodQuery(lat: number, lon: number, radiusMeters: number, meal: MealType): string {
-  // breakfast: cafe, bakery
-  // lunch: cafe, restaurant
-  // dinner: restaurant, fast_food
-  // all: all of the above
+export function buildFoodQuery(
+  lat: number,
+  lon: number,
+  radiusMeters: number,
+  meal: MealType
+): string {
   const breakfast = `nwr(around:${radiusMeters},${lat},${lon})["amenity"~"^(cafe|bakery)$"];`;
   const lunch = `nwr(around:${radiusMeters},${lat},${lon})["amenity"~"^(cafe|restaurant)$"];`;
   const dinner = `nwr(around:${radiusMeters},${lat},${lon})["amenity"~"^(restaurant|fast_food)$"];`;
   const all = `nwr(around:${radiusMeters},${lat},${lon})["amenity"~"^(cafe|bakery|restaurant|fast_food)$"];`;
 
   const block =
-    meal === "breakfast" ? breakfast : meal === "lunch" ? lunch : meal === "dinner" ? dinner : all;
+    meal === "breakfast"
+      ? breakfast
+      : meal === "lunch"
+      ? lunch
+      : meal === "dinner"
+      ? dinner
+      : all;
 
   return `
 [out:json][timeout:25];
@@ -200,7 +251,11 @@ out center tags;
 `;
 }
 
-export function buildTouristSpotsQuery(lat: number, lon: number, radiusMeters: number): string {
+export function buildTouristSpotsQuery(
+  lat: number,
+  lon: number,
+  radiusMeters: number
+): string {
   return `
 [out:json][timeout:25];
 (
@@ -212,7 +267,11 @@ out center tags;
 `;
 }
 
-export function buildHiddenGemsQuery(lat: number, lon: number, radiusMeters: number): string {
+export function buildHiddenGemsQuery(
+  lat: number,
+  lon: number,
+  radiusMeters: number
+): string {
   return `
 [out:json][timeout:25];
 (
@@ -225,7 +284,11 @@ out center tags;
 `;
 }
 
-export function buildMarketsQuery(lat: number, lon: number, radiusMeters: number): string {
+export function buildMarketsQuery(
+  lat: number,
+  lon: number,
+  radiusMeters: number
+): string {
   return `
 [out:json][timeout:25];
 (
@@ -237,7 +300,11 @@ out center tags;
 `;
 }
 
-export function buildTransportQuery(lat: number, lon: number, radiusMeters: number): string {
+export function buildTransportQuery(
+  lat: number,
+  lon: number,
+  radiusMeters: number
+): string {
   return `
 [out:json][timeout:25];
 (
