@@ -26,9 +26,9 @@ export function DateRangePicker({
   onEndDateChange,
   className,
 }: DateRangePickerProps) {
-  // ------------------------------------------------------------
-  // AFSNIT 01 – Popover state (kontrolleret)
-  // ------------------------------------------------------------
+  // ============================================================
+  // AFSNIT 01 – Kontrolleret popover-state
+  // ============================================================
   const [openStart, setOpenStart] = React.useState(false);
   const [openEnd, setOpenEnd] = React.useState(false);
 
@@ -69,7 +69,7 @@ export function DateRangePicker({
                 if (date && endDate && date > endDate) {
                   onEndDateChange(addDays(date, 1));
                 }
-                setOpenStart(false); // ✅ LUK popover
+                setOpenStart(false); // ✅ LUK dropdown
               }}
               disabled={(date) => date < new Date()}
               initialFocus
@@ -111,7 +111,7 @@ export function DateRangePicker({
               selected={endDate}
               onSelect={(date) => {
                 onEndDateChange(date);
-                setOpenEnd(false); // ✅ LUK popover
+                setOpenEnd(false); // ✅ LUK dropdown
               }}
               disabled={(date) =>
                 date < (startDate ? addDays(startDate, 1) : new Date())
