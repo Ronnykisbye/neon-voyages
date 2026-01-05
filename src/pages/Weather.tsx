@@ -29,7 +29,7 @@ interface WeatherDay {
   windSpeed: number;
 }
 
-const FORECAST_DAYS = 5; // ✅ fast 5-dages prognose
+const FORECAST_DAYS = 5; // ✅ FAST 5-DAGES PROGNOSE
 
 const weatherIcons: Record<number, React.ReactNode> = {
   0: <Sun className="h-8 w-8 text-yellow-400" />,
@@ -90,7 +90,7 @@ function WeatherContent() {
     setError(null);
 
     try {
-      const start = new Date(); // ✅ ALTID fra i dag
+      const start = new Date(); // ALTID fra nu
       const end = addDays(start, FORECAST_DAYS - 1);
 
       const startDate = format(start, "yyyy-MM-dd");
@@ -135,6 +135,16 @@ function WeatherContent() {
 
       <main className="flex-1 space-y-4 pb-6">
         {loading && <p className="text-muted-foreground">Henter vejr…</p>}
+
+        {!loading && error && (
+          <NeonCard variant="accent">
+            <p className="text-destructive text-center">{error}</p>
+            <NeonButton onClick={fetchWeather} size="sm" className="mx-auto mt-3">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Prøv igen
+            </NeonButton>
+          </NeonCard>
+        )}
 
         {!loading && !error &&
           weather.map((day) => (
