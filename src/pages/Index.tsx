@@ -10,7 +10,7 @@ import { DaysStepper } from "@/components/DaysStepper";
 import { NeonButton } from "@/components/ui/NeonButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useTrip } from "@/context/TripContext";
-import { type LocationResult } from "@/services/geocoding";
+import { type LocationResult, reverseGeocodeAddress } from "@/services/geocoding";
 import { differenceInDays } from "date-fns";
 
 // ============================================================================
@@ -37,7 +37,7 @@ const Index = () => {
   }, [trip.startDate, trip.endDate, trip.days, setTrip]);
 
   // --------------------------------------------------------------------------
-  // AFSNIT 03 – Handlers
+  // AFSNIT 03 – Handlers (destination + datoer + continue)
   // --------------------------------------------------------------------------
   const handleDestinationChange = (value: string, location?: LocationResult) => {
     setTrip({ destination: value, location });
@@ -62,18 +62,41 @@ const Index = () => {
   };
 
   // --------------------------------------------------------------------------
-  // AFSNIT 04 – GPS “Her og nu” (robust + retry)
+  // AFSNIT 04 – GPS “Her og nu” (robust + retry + stednavn)
   // --------------------------------------------------------------------------
-  const applyGpsTripAndGo = (lat: number, lon: number) => {
+  const resolveGpsPlaceName = async (lat: number, lon: number): Promise<string> => {
+    // Vi bruger Nominatim reverse geocoding (ingen API-nøgle).
+    // Hvis det fejler, falder vi tilbage til “Min lokation”.
+    const rev = await reverseGeocodeAddress(lat, lon);
+
+    const best =
+      rev?.city ||
+      rev?.suburb ||
+      (rev?.displayName ? rev.displayName.split(",")[0]?.trim() : undefined);
+
+    return best && best.length > 0 ? best : "Min lokation";
+  };
+
+  const applyGpsTripAndGo = async (lat: number, lon: number) => {
     const now = new Date();
-    setTrip({
-      destination: "Min lokation",
-      location: { lat, lon },
-      startDate: now,
-      endDate: now,
-      days: 1,
-    });
-    navigate("/menu");
+
+    try {
+      const placeName = await resolveGpsPlaceName(lat, lon);
+
+      setTrip({
+        destination: placeName,
+        location: { lat, lon },
+        startDate: now,
+        endDate: now,
+        days: 1,
+      });
+
+      setGpsError(null);
+      navigate("/menu");
+    } finally {
+      // Hold loading aktiv indtil vi også har forsøgt at finde stednavn
+      setGpsLoading(false);
+    }
   };
 
   const friendlyGpsError = (code?: number) => {
@@ -140,8 +163,8 @@ const Index = () => {
       optionsHigh,
       (pos) => {
         const { latitude, longitude } = pos.coords;
-        setGpsLoading(false);
-        applyGpsTripAndGo(latitude, longitude);
+        // NOTE: loading slukkes inde i applyGpsTripAndGo (efter reverse geocode)
+        void applyGpsTripAndGo(latitude, longitude);
       },
       (err) => {
         // Timeout / utilgængelig → prøv fallback én gang
@@ -153,9 +176,9 @@ const Index = () => {
             optionsFallback,
             (pos2) => {
               const { latitude, longitude } = pos2.coords;
-              setGpsLoading(false);
               setGpsError(null);
-              applyGpsTripAndGo(latitude, longitude);
+              // NOTE: loading slukkes inde i applyGpsTripAndGo (efter reverse geocode)
+              void applyGpsTripAndGo(latitude, longitude);
             },
             (err2) => {
               setGpsLoading(false);
@@ -201,7 +224,7 @@ const Index = () => {
             <Plane className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gradient-neon">Ung Rejse</h1>
+            <h1 className="text-xl font-bold text-gradient-neon">Neon Voyages</h1>
             <p className="text-sm text-muted-foreground">Din rejseguide</p>
           </div>
         </div>
