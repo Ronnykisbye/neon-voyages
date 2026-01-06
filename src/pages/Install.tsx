@@ -40,49 +40,37 @@ function isStandaloneMode(): boolean {
 
 export default function Install() {
   const navigate = useNavigate();
-
   const device = useMemo(() => detectDevice(), []);
+
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
 
-  // “standalone” = åbnet som app-vindue
   const [standalone, setStandalone] = useState(false);
-
-  // “installedFlag” = vi ved, at appen er installeret (også hvis man står i browser bagefter)
   const [installedFlag, setInstalledFlag] = useState(false);
 
+  /* =========================================================
+     AFSNIT 04 – Init: læs state + events
+  ========================================================= */
   useEffect(() => {
-    // Læs flag, så siden kan vise “installeret” på senere besøg
     setInstalledFlag(localStorage.getItem(LS_INSTALLED_FLAG) === "1");
     setStandalone(isStandaloneMode());
 
-    /* ---------------------------------------------------------
-       AFSNIT 03A – beforeinstallprompt (Android/Edge/Chrome)
-    --------------------------------------------------------- */
     const beforeInstallHandler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
-    /* ---------------------------------------------------------
-       AFSNIT 03B – appinstalled (når installation sker)
-       Gem flag i localStorage, så vi kan vise success også i browser-fanen.
-    --------------------------------------------------------- */
     const installedHandler = () => {
       localStorage.setItem(LS_INSTALLED_FLAG, "1");
       setInstalledFlag(true);
     };
 
-    /* ---------------------------------------------------------
-       AFSNIT 03C – opdater “standalone” hvis display-mode ændrer sig
-    --------------------------------------------------------- */
     const mql = window.matchMedia("(display-mode: standalone)");
     const displayModeHandler = () => setStandalone(isStandaloneMode());
 
     window.addEventListener("beforeinstallprompt", beforeInstallHandler);
     window.addEventListener("appinstalled", installedHandler);
 
-    // Safari/ældre håndterer ikke altid addEventListener på MediaQueryList
     if (typeof mql.addEventListener === "function") {
       mql.addEventListener("change", displayModeHandler);
     } else {
@@ -104,9 +92,17 @@ export default function Install() {
   }, []);
 
   /* =========================================================
-     AFSNIT 04 – Handling: Installér
-     Hvis brugeren accepterer, sætter vi flag optimistisk.
-     (Edge/Chrome fyrer typisk appinstalled kort efter)
+     AFSNIT 05 – Auto-redirect
+     Hvis appen allerede er installeret → direkte til Menu.
+  ========================================================= */
+  useEffect(() => {
+    if (standalone || installedFlag) {
+      navigate("/menu", { replace: true });
+    }
+  }, [standalone, installedFlag, navigate]);
+
+  /* =========================================================
+     AFSNIT 06 – Handling: Installér
   ========================================================= */
   const handleInstall = async () => {
     if (!deferredPrompt) return;
@@ -123,9 +119,8 @@ export default function Install() {
   };
 
   /* =========================================================
-     AFSNIT 05 – UI-tilstande
+     AFSNIT 07 – UI (kun hvis ikke installeret)
   ========================================================= */
-  const showSuccess = standalone || installedFlag;
 
   return (
     <div className="min-h-screen px-4 py-2 max-w-lg mx-auto">
@@ -135,30 +130,8 @@ export default function Install() {
       />
 
       <main className="space-y-4">
-        {/* =======================================================
-            AFSNIT 05A – Success state
-        ======================================================== */}
-        {showSuccess && (
-          <NeonCard>
-            <p className="text-center font-semibold">✅ Neon Voyages er installeret</p>
-
-            <p className="text-sm text-muted-foreground text-center mt-2">
-              Åbn appen fra dit ikon — eller tryk{" "}
-              <strong>“Åbn i app”</strong> i browseren, hvis du ser knappen øverst.
-            </p>
-
-            <div className="mt-4">
-              <NeonButton className="w-full" onClick={() => navigate("/menu")}>
-                Gå til Menu
-              </NeonButton>
-            </div>
-          </NeonCard>
-        )}
-
-        {/* =======================================================
-            AFSNIT 05B – Install-knap (når browseren tillader det)
-        ======================================================== */}
-        {!showSuccess && deferredPrompt && device !== "ios" && (
+        {/* Install-knap hvis browser tilbyder det */}
+        {deferredPrompt && device !== "ios" && (
           <NeonCard>
             <p className="mb-3">Installer Neon Voyages som en rigtig app.</p>
             <NeonButton onClick={handleInstall} className="w-full">
@@ -167,10 +140,8 @@ export default function Install() {
           </NeonCard>
         )}
 
-        {/* =======================================================
-            AFSNIT 05C – iPhone/iPad guide
-        ======================================================== */}
-        {!showSuccess && device === "ios" && (
+        {/* iPhone/iPad guide */}
+        {device === "ios" && (
           <NeonCard>
             <p className="font-semibold mb-2">Sådan installerer du på iPhone / iPad:</p>
             <ol className="list-decimal list-inside space-y-1 text-sm">
@@ -181,10 +152,8 @@ export default function Install() {
           </NeonCard>
         )}
 
-        {/* =======================================================
-            AFSNIT 05D – Android guide (hvis prompt ikke vises)
-        ======================================================== */}
-        {!showSuccess && device === "android" && !deferredPrompt && (
+        {/* Android guide hvis prompt ikke vises */}
+        {device === "android" && !deferredPrompt && (
           <NeonCard>
             <p className="font-semibold mb-2">Sådan installerer du på Android:</p>
             <ol className="list-decimal list-inside space-y-1 text-sm">
@@ -198,10 +167,8 @@ export default function Install() {
           </NeonCard>
         )}
 
-        {/* =======================================================
-            AFSNIT 05E – Desktop guide (hvis prompt ikke vises)
-        ======================================================== */}
-        {!showSuccess && device === "desktop" && !deferredPrompt && (
+        {/* Desktop guide hvis prompt ikke vises */}
+        {device === "desktop" && !deferredPrompt && (
           <NeonCard>
             <p className="font-semibold mb-2">Sådan installerer du på PC / Mac:</p>
             <ol className="list-decimal list-inside space-y-1 text-sm">
