@@ -1,25 +1,52 @@
 <!doctype html>
-<html lang="en">
+<html lang="da">
   <head>
+    <!-- =========================================================
+         AFSNIT 01 – Basale meta tags
+    ========================================================== -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- TODO: Set the document title to the name of your application -->
-    <title>Lovable App</title>
-    <meta name="description" content="Lovable Generated Project" />
+
+    <title>Neon Voyages</title>
+    <meta name="description" content="Neon Voyages – din rejseguide." />
     <meta name="author" content="Lovable" />
 
-    <!-- TODO: Update og:title to match your application name -->
-    <meta property="og:title" content="Lovable App" />
-    <meta property="og:description" content="Lovable Generated Project" />
+    <!-- =========================================================
+         AFSNIT 02 – PWA (manifest + theme color)
+         (Relative stier virker både lokalt og på GitHub Pages /neon-voyages/)
+    ========================================================== -->
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#007AFF" />
+
+    <!-- =========================================================
+         AFSNIT 03 – Ikoner
+    ========================================================== -->
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
+
+    <!-- iOS (Add to Home Screen) -->
+    <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Neon Voyages" />
+
+    <!-- =========================================================
+         AFSNIT 04 – Open Graph / Social
+    ========================================================== -->
+    <meta property="og:title" content="Neon Voyages" />
+    <meta property="og:description" content="Neon Voyages – din rejseguide." />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta property="og:image" content="icons/icon-512.png" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@Lovable" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta name="twitter:image" content="icons/icon-512.png" />
   </head>
 
   <body>
+    <!-- =========================================================
+         AFSNIT 05 – App root + Vite entry
+    ========================================================== -->
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
