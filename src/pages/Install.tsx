@@ -93,11 +93,24 @@ export default function Install() {
 
   /* =========================================================
      AFSNIT 05 – Auto-redirect
-     Hvis appen allerede er installeret → direkte til Menu.
+     Hvis appen allerede er installeret → direkte til FORSIDEN
+     (hvor man kan taste data ind).
   ========================================================= */
   useEffect(() => {
-    if (standalone || installedFlag) {
-      navigate("/menu", { replace: true });
+    if (standalone) {
+      // Hvis vi er i standalone, er appen reelt installeret.
+      // Sæt flag også (især nyttigt på iOS, hvor events ikke altid fyres).
+      if (localStorage.getItem(LS_INSTALLED_FLAG) !== "1") {
+        localStorage.setItem(LS_INSTALLED_FLAG, "1");
+      }
+      if (!installedFlag) setInstalledFlag(true);
+
+      navigate("/", { replace: true });
+      return;
+    }
+
+    if (installedFlag) {
+      navigate("/", { replace: true });
     }
   }, [standalone, installedFlag, navigate]);
 
@@ -143,11 +156,19 @@ export default function Install() {
         {/* iPhone/iPad guide */}
         {device === "ios" && (
           <NeonCard>
-            <p className="font-semibold mb-2">Sådan installerer du på iPhone / iPad:</p>
+            <p className="font-semibold mb-2">
+              Sådan installerer du på iPhone / iPad:
+            </p>
             <ol className="list-decimal list-inside space-y-1 text-sm">
-              <li>Tryk på <strong>Del</strong>-ikonet i Safari</li>
-              <li>Vælg <strong>“Føj til hjemmeskærm”</strong></li>
-              <li>Tryk <strong>Tilføj</strong></li>
+              <li>
+                Tryk på <strong>Del</strong>-ikonet i Safari
+              </li>
+              <li>
+                Vælg <strong>“Føj til hjemmeskærm”</strong>
+              </li>
+              <li>
+                Tryk <strong>Tilføj</strong>
+              </li>
             </ol>
           </NeonCard>
         )}
@@ -157,7 +178,9 @@ export default function Install() {
           <NeonCard>
             <p className="font-semibold mb-2">Sådan installerer du på Android:</p>
             <ol className="list-decimal list-inside space-y-1 text-sm">
-              <li>Tryk på <strong>⋮</strong> (øverst i browseren)</li>
+              <li>
+                Tryk på <strong>⋮</strong> (øverst i browseren)
+              </li>
               <li>
                 Vælg <strong>“Installer app”</strong> eller{" "}
                 <strong>“Føj til startskærm”</strong>
@@ -172,8 +195,12 @@ export default function Install() {
           <NeonCard>
             <p className="font-semibold mb-2">Sådan installerer du på PC / Mac:</p>
             <ol className="list-decimal list-inside space-y-1 text-sm">
-              <li>Åbn browserens menu (<strong>⋮</strong>)</li>
-              <li>Vælg <strong>“Installer Neon Voyages”</strong></li>
+              <li>
+                Åbn browserens menu (<strong>⋮</strong>)
+              </li>
+              <li>
+                Vælg <strong>“Installer Neon Voyages”</strong>
+              </li>
               <li>Appen åbner i sit eget vindue</li>
             </ol>
           </NeonCard>
