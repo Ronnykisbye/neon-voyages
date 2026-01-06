@@ -1,4 +1,7 @@
-import React, { useState } from "react";
+// ============================================================================
+// AFSNIT 00 – Imports
+// ============================================================================
+import React from "react";
 import { format } from "date-fns";
 import { da } from "date-fns/locale";
 import {
@@ -34,6 +37,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+// ============================================================================
+// AFSNIT 01 – Menu items
+// ============================================================================
 const menuItems = [
   {
     icon: <CloudSun className="h-6 w-6" />,
@@ -93,6 +99,9 @@ const menuItems = [
   },
 ];
 
+// ============================================================================
+// AFSNIT 02 – MenuContent
+// ============================================================================
 function MenuContent() {
   const { trip, clearTrip } = useTrip();
   const navigate = useNavigate();
@@ -113,9 +122,14 @@ function MenuContent() {
 
   return (
     <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
-      <PageHeader title="Ung Rejse" showBack={true} backTo="/" />
+      {/* =========================================================================
+          AFSNIT 03 – Header (APP NAVN)
+         ========================================================================= */}
+      <PageHeader title="Neon Voyages" showBack={true} backTo="/" />
 
-      {/* Trip Summary */}
+      {/* =========================================================================
+          AFSNIT 04 – Trip Summary
+         ========================================================================= */}
       <NeonCard variant="glow" className="mb-6">
         <div className="flex items-center gap-4">
           <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -137,11 +151,14 @@ function MenuContent() {
         </div>
       </NeonCard>
 
-      {/* Menu Grid */}
+      {/* =========================================================================
+          AFSNIT 05 – Menu Grid
+         ========================================================================= */}
       <main className="flex-1 space-y-3 pb-6">
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
           Udforsk
         </h3>
+
         {menuItems.map((item) => (
           <MenuButton
             key={item.to}
@@ -153,7 +170,9 @@ function MenuContent() {
           />
         ))}
 
-        {/* Reset Trip Button */}
+        {/* =========================================================================
+            AFSNIT 06 – Reset Trip Button
+           ========================================================================= */}
         <div className="pt-4">
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -166,14 +185,16 @@ function MenuContent() {
                 Nulstil rejse
               </NeonButton>
             </AlertDialogTrigger>
+
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Nulstil rejse?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Dette vil slette alle rejsedata og sende dig tilbage til forsiden. 
+                  Dette vil slette alle rejsedata og sende dig tilbage til forsiden.
                   Denne handling kan ikke fortrydes.
                 </AlertDialogDescription>
               </AlertDialogHeader>
+
               <AlertDialogFooter>
                 <AlertDialogCancel>Annuller</AlertDialogCancel>
                 <AlertDialogAction onClick={handleClearTrip}>
@@ -190,6 +211,9 @@ function MenuContent() {
   );
 }
 
+// ============================================================================
+// AFSNIT 07 – Export (TripGuard)
+// ============================================================================
 export default function Menu() {
   return (
     <TripGuard>
