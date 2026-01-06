@@ -18,6 +18,7 @@ import Events from "./pages/Events";
 import Markets from "./pages/Markets";
 import Transport from "./pages/Transport";
 import Help from "./pages/Help";
+import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,10 +31,8 @@ const App = () => (
           <Toaster />
           <Sonner />
 
-          {/* Viser "arbejder..." når appen henter data */}
           <GlobalLoadingIndicator />
 
-          {/* GitHub Pages: HashRouter undgår 404 ved direkte links */}
           <HashRouter>
             <Routes>
               <Route path="/" element={<Index />} />
@@ -46,6 +45,7 @@ const App = () => (
               <Route path="/markets" element={<Markets />} />
               <Route path="/transport" element={<Transport />} />
               <Route path="/help" element={<Help />} />
+              <Route path="/install" element={<Install />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </HashRouter>
