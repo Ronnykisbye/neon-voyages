@@ -11,13 +11,16 @@ interface BeforeInstallPromptEvent extends Event {
 export default function Install() {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
-  const [isIOS, setIsIOS] = useState(false);
+  const [device, setDevice] = useState<"ios" | "android" | "desktop">("desktop");
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
     const ua = window.navigator.userAgent.toLowerCase();
 
-    setIsIOS(/iphone|ipad|ipod/.test(ua));
+    if (/iphone|ipad|ipod/.test(ua)) setDevice("ios");
+    else if (/android/.test(ua)) setDevice("android");
+    else setDevice("desktop");
+
     setIsStandalone(
       window.matchMedia("(display-mode: standalone)").matches ||
         // @ts-ignore
@@ -30,10 +33,7 @@ export default function Install() {
     };
 
     window.addEventListener("beforeinstallprompt", handler);
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", handler);
-    };
+    return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
   const handleInstall = async () => {
@@ -59,10 +59,10 @@ export default function Install() {
           </NeonCard>
         )}
 
-        {!isStandalone && deferredPrompt && !isIOS && (
+        {!isStandalone && deferredPrompt && device !== "ios" && (
           <NeonCard>
             <p className="mb-3">
-              Installer Neon Voyages som en rigtig app på din enhed.
+              Installer Neon Voyages som en rigtig app.
             </p>
             <NeonButton onClick={handleInstall} className="w-full">
               Installer app
@@ -70,9 +70,9 @@ export default function Install() {
           </NeonCard>
         )}
 
-        {!isStandalone && isIOS && (
+        {!isStandalone && device === "ios" && (
           <NeonCard>
-            <p className="font-semibold mb-2">Sådan installerer du på iPhone/iPad:</p>
+            <p className="font-semibold mb-2">Sådan installerer du på iPhone / iPad:</p>
             <ol className="list-decimal list-inside space-y-1 text-sm">
               <li>Tryk på <strong>Del</strong>-ikonet i Safari</li>
               <li>Vælg <strong>“Føj til hjemmeskærm”</strong></li>
@@ -81,13 +81,25 @@ export default function Install() {
           </NeonCard>
         )}
 
-        {!isStandalone && !deferredPrompt && !isIOS && (
+        {!isStandalone && device === "android" && !deferredPrompt && (
           <NeonCard>
-            <p className="text-sm text-muted-foreground">
-              Tip: Brug browserens menu og vælg
-              <strong> “Installer app”</strong> eller
-              <strong> “Tilføj til startskærm”</strong>.
-            </p>
+            <p className="font-semibold mb-2">Sådan installerer du på Android:</p>
+            <ol className="list-decimal list-inside space-y-1 text-sm">
+              <li>Tryk på <strong>⋮</strong> (øverst i browseren)</li>
+              <li>Vælg <strong>“Installer app”</strong> eller <strong>“Føj til startskærm”</strong></li>
+              <li>Bekræft</li>
+            </ol>
+          </NeonCard>
+        )}
+
+        {!isStandalone && device === "desktop" && !deferredPrompt && (
+          <NeonCard>
+            <p className="font-semibold mb-2">Sådan installerer du på PC / Mac:</p>
+            <ol className="list-decimal list-inside space-y-1 text-sm">
+              <li>Åbn browserens menu (<strong>⋮</strong>)</li>
+              <li>Vælg <strong>“Installer Neon Voyages”</strong></li>
+              <li>Appen åbner i sit eget vindue</li>
+            </ol>
           </NeonCard>
         )}
       </main>
