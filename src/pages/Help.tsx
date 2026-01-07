@@ -2,12 +2,14 @@
 // AFSNIT 01 – Imports
 // ======================================================
 import { useEffect, useMemo, useState } from "react";
-import { Phone, MapPin, AlertTriangle, ExternalLink } from "lucide-react";
+import { Phone, MapPin, AlertTriangle } from "lucide-react";
+
 import { useTrip } from "@/context/TripContext";
 import { queryOverpass } from "@/services/overpass";
-import { PlaceCard } from "@/components/PlaceCard";
-import { SearchControls } from "@/components/SearchControls";
-import { TripGuard } from "@/components/TripGuard";
+
+import SearchControls from "@/components/SearchControls";
+import PlaceCard from "@/components/PlaceCard";
+import TripGuard from "@/components/TripGuard";
 
 // ======================================================
 // AFSNIT 02 – Typer & konstanter
