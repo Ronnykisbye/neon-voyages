@@ -27,20 +27,39 @@ const Index = () => {
   // AFSNIT 02 – Effects
   // --------------------------------------------------------------------------
   useEffect(() => {
-    // Sync days with date range
+    // Når start+slutdato er sat, beregn days automatisk.
     if (trip.startDate && trip.endDate) {
-      const calculatedDays = differenceInDays(trip.endDate, trip.startDate);
-      if (calculatedDays > 0 && calculatedDays !== trip.days) {
-        setTrip({ days: calculatedDays });
+      const days = differenceInDays(trip.endDate, trip.startDate) + 1;
+      if (days > 0 && days !== trip.days) {
+        setTrip({ days });
       }
     }
-  }, [trip.startDate, trip.endDate, trip.days, setTrip]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trip.startDate, trip.endDate]);
 
   // --------------------------------------------------------------------------
-  // AFSNIT 03 – Handlers (destination + datoer + continue)
+  // AFSNIT 03 – Handlers
   // --------------------------------------------------------------------------
   const handleDestinationChange = (value: string, location?: LocationResult) => {
-    setTrip({ destination: value, location });
+    // Hvis brugeren vælger fra listen (location findes),
+    // så gem også land-info – uden gæt.
+    if (location) {
+      setTrip({
+        destination: location.name || value,
+        location,
+        countryName: location.country,
+        countryCode: location.countryCode,
+      });
+      return;
+    }
+
+    // Brugeren skriver bare tekst → ingen lat/lon og ingen land.
+    setTrip({
+      destination: value,
+      location: undefined,
+      countryName: undefined,
+      countryCode: undefined,
+    });
   };
 
   const handleStartDateChange = (date: Date | undefined) => {
@@ -62,186 +81,133 @@ const Index = () => {
   };
 
   // --------------------------------------------------------------------------
-  // AFSNIT 04 – GPS “Her og nu” (robust + retry + stednavn)
+  // AFSNIT 04 – GPS helper (find by + land via reverse geocoding)
   // --------------------------------------------------------------------------
-  const resolveGpsPlaceName = async (lat: number, lon: number): Promise<string> => {
-    // Vi bruger Nominatim reverse geocoding (ingen API-nøgle).
-    // Hvis det fejler, falder vi tilbage til “Min lokation”.
-    const rev = await reverseGeocodeAddress(lat, lon);
-
-    const best =
-      rev?.city ||
-      rev?.suburb ||
-      (rev?.displayName ? rev.displayName.split(",")[0]?.trim() : undefined);
-
-    return best && best.length > 0 ? best : "Min lokation";
-  };
-
   const applyGpsTripAndGo = async (lat: number, lon: number) => {
     const now = new Date();
 
-    try {
-      const placeName = await resolveGpsPlaceName(lat, lon);
+    // Reverse geocode for at få by/land (ingen gæt – kun hvis vi får data)
+    const reverse = await reverseGeocodeAddress(lat, lon);
 
-      setTrip({
-        destination: placeName,
-        location: { lat, lon },
-        startDate: now,
-        endDate: now,
-        days: 1,
-      });
+    const cityName =
+      reverse?.city?.trim() ||
+      // fallback: prøv at bruge første del af displayName hvis city mangler
+      (reverse?.displayName ? reverse.displayName.split(",")[0].trim() : "") ||
+      "Min lokation";
 
-      setGpsError(null);
-      navigate("/menu");
-    } finally {
-      // Hold loading aktiv indtil vi også har forsøgt at finde stednavn
-      setGpsLoading(false);
-    }
+    // Byg et "minimalt men validt" LocationResult
+    const gpsLocation: LocationResult = {
+      id: "gps",
+      name: cityName,
+      displayName: reverse?.displayName || cityName,
+      lat,
+      lon,
+      country: reverse?.country,
+      countryCode: reverse?.countryCode,
+      type: "gps",
+    };
+
+    setTrip({
+      destination: cityName,
+      location: gpsLocation,
+      startDate: now,
+      endDate: now,
+      days: 1,
+      countryName: reverse?.country,
+      countryCode: reverse?.countryCode,
+    });
+
+    navigate("/menu");
   };
 
   const friendlyGpsError = (code?: number) => {
     // code: 1=PERMISSION_DENIED, 2=POSITION_UNAVAILABLE, 3=TIMEOUT
-    if (code === 1) {
-      return "GPS er blokeret. Tillad lokation i browseren (lås-ikonet i adresselinjen) og prøv igen.";
-    }
-    if (code === 2) {
-      return "GPS kunne ikke finde din lokation. Tænd Windows Lokation, eller prøv igen på Wi-Fi.";
-    }
-    if (code === 3) {
-      return "GPS tog for lang tid. Prøver igen… (tip: tænd Windows Lokation og prøv på Wi-Fi)";
-    }
-    return "Kunne ikke hente din lokation. Tillad GPS og prøv igen.";
+    if (code === 1) return "Du har afvist GPS. Tillad lokation i browseren og prøv igen.";
+    if (code === 2) return "GPS kunne ikke finde din position. Prøv igen om lidt.";
+    if (code === 3) return "GPS tog for lang tid. Prøv igen.";
+    return "GPS fejlede. Prøv igen.";
   };
 
-  const tryGetPosition = (
-    options: PositionOptions,
-    onSuccess: (pos: GeolocationPosition) => void,
-    onError: (err: GeolocationPositionError) => void
-  ) => {
-    navigator.geolocation.getCurrentPosition(onSuccess, onError, options);
-  };
+  const handleUseGps = () => {
+    setGpsError(null);
 
-  const handleUseGpsNow = async () => {
     if (!navigator.geolocation) {
-      setGpsError("GPS understøttes ikke på denne enhed/browser.");
+      setGpsError("GPS understøttes ikke i denne browser.");
       return;
     }
 
     setGpsLoading(true);
-    setGpsError(null);
 
-    // 1) Hvis browseren understøtter Permissions API, så kan vi give bedre besked ved “denied”
-    try {
-      // @ts-expect-error: permissions kan mangle i nogle browsere
-      const perm = await navigator.permissions?.query?.({ name: "geolocation" });
-      if (perm?.state === "denied") {
-        setGpsLoading(false);
-        setGpsError(
-          "GPS er blokeret i browseren. Klik på låsen ved adressen → Tillad lokation → prøv igen."
-        );
-        return;
-      }
-    } catch {
-      // Ignorer – permissions API findes ikke overalt
-    }
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          await applyGpsTripAndGo(pos.coords.latitude, pos.coords.longitude);
+        } catch {
+          // Hvis reverse geocode fejler, så gem i det mindste lat/lon og gå videre.
+          // (ingen gæt – bare fallback)
+          const now = new Date();
+          const fallbackLocation: LocationResult = {
+            id: "gps",
+            name: "Min lokation",
+            displayName: "Min lokation",
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            type: "gps",
+          };
 
-    // 2) Første forsøg: høj præcision (god på mobil, men kan timeoute på desktop)
-    const optionsHigh: PositionOptions = {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0,
-    };
+          setTrip({
+            destination: "Min lokation",
+            location: fallbackLocation,
+            startDate: now,
+            endDate: now,
+            days: 1,
+            countryName: undefined,
+            countryCode: undefined,
+          });
 
-    // 3) Fallback: lavere præcision + længere timeout + cache (bedre på PC)
-    const optionsFallback: PositionOptions = {
-      enableHighAccuracy: false,
-      timeout: 20000,
-      maximumAge: 600000, // 10 min cache er OK til “her og nu”
-    };
-
-    tryGetPosition(
-      optionsHigh,
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        // NOTE: loading slukkes inde i applyGpsTripAndGo (efter reverse geocode)
-        void applyGpsTripAndGo(latitude, longitude);
+          navigate("/menu");
+        } finally {
+          setGpsLoading(false);
+        }
       },
       (err) => {
-        // Timeout / utilgængelig → prøv fallback én gang
-        const msg = friendlyGpsError(err.code);
-        setGpsError(msg);
-
-        if (err.code === 2 || err.code === 3) {
-          tryGetPosition(
-            optionsFallback,
-            (pos2) => {
-              const { latitude, longitude } = pos2.coords;
-              setGpsError(null);
-              // NOTE: loading slukkes inde i applyGpsTripAndGo (efter reverse geocode)
-              void applyGpsTripAndGo(latitude, longitude);
-            },
-            (err2) => {
-              setGpsLoading(false);
-              setGpsError(friendlyGpsError(err2.code));
-            }
-          );
-          return;
-        }
-
-        // Permission denied eller andet
         setGpsLoading(false);
-      }
+        setGpsError(friendlyGpsError(err?.code));
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
     );
   };
 
   // --------------------------------------------------------------------------
-  // AFSNIT 05 – Validation
-  // --------------------------------------------------------------------------
-  const getValidationMessage = () => {
-    if (!trip.destination) {
-      return "Vælg en destination for at fortsætte";
-    }
-    if (!hasLocation) {
-      return "Vælg en destination fra forslagslisten";
-    }
-    if (!trip.startDate || !trip.endDate) {
-      return "Vælg rejsedatoer for at fortsætte";
-    }
-    return "";
-  };
-
-  const canContinue = isValid && hasLocation;
-
-  // --------------------------------------------------------------------------
-  // AFSNIT 06 – UI
+  // AFSNIT 05 – UI
   // --------------------------------------------------------------------------
   return (
-    <div className="min-h-screen flex flex-col px-4 py-6 max-w-lg mx-auto animate-fade-in">
-      {/* Header */}
-      <header className="flex items-center justify-between mb-8">
+    <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
+      {/* Top bar */}
+      <header className="flex items-center justify-between py-3">
         <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center glow-primary">
-            <Plane className="h-6 w-6 text-primary" />
+          <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center">
+            <Plane className="h-5 w-5 text-primary" />
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-gradient-neon">Neon Voyages</h1>
-            <p className="text-sm text-muted-foreground">Din rejseguide</p>
+          <div className="leading-tight">
+            <div className="font-bold text-foreground">Neon Voyages</div>
+            <div className="text-xs text-muted-foreground">Din rejseguide</div>
           </div>
         </div>
         <ThemeToggle />
       </header>
 
-      {/* Main Form */}
-      <main className="flex-1 space-y-6">
+      <main className="flex-1 space-y-6 pt-2">
+        {/* Destination */}
         <section className="space-y-2">
-          <h2 className="text-lg font-semibold text-foreground">
-            Hvor skal du hen?
-          </h2>
+          <h2 className="text-lg font-bold text-foreground">Hvor skal du hen?</h2>
+
           <DestinationInput
             value={trip.destination}
             onChange={handleDestinationChange}
             placeholder="Søg efter by eller land..."
           />
+
           {trip.destination && !hasLocation && (
             <p className="text-xs text-accent">
               Vælg en destination fra forslagslisten for at få præcise resultater
@@ -255,22 +221,20 @@ const Index = () => {
             variant="secondary"
             size="lg"
             className="w-full"
-            onClick={handleUseGpsNow}
+            onClick={handleUseGps}
             disabled={gpsLoading}
           >
             <MapPin className="h-5 w-5 mr-2" />
-            {gpsLoading ? "Finder din lokation..." : "Brug min GPS (her og nu)"}
+            {gpsLoading ? "Finder GPS..." : "Brug min GPS (her og nu)"}
           </NeonButton>
 
-          {gpsError && (
-            <p className="text-sm text-destructive text-center">{gpsError}</p>
-          )}
+          {gpsError && <p className="text-sm text-destructive">{gpsError}</p>}
         </section>
 
+        {/* Datoer */}
         <section className="space-y-2">
-          <h2 className="text-lg font-semibold text-foreground">
-            Hvornår rejser du?
-          </h2>
+          <h2 className="text-lg font-bold text-foreground">Hvornår rejser du?</h2>
+
           <DateRangePicker
             startDate={trip.startDate}
             endDate={trip.endDate}
@@ -279,29 +243,31 @@ const Index = () => {
           />
         </section>
 
-        <section>
+        {/* Days */}
+        <section className="space-y-2">
+          <h2 className="text-lg font-bold text-foreground">Antal dage</h2>
           <DaysStepper value={trip.days} onChange={handleDaysChange} />
-          <p className="text-xs text-muted-foreground mt-2">
+          <p className="text-xs text-muted-foreground">
             Antal dage beregnes automatisk ud fra dine datoer
           </p>
         </section>
+
+        {/* Continue */}
+        <section className="pt-2">
+          <NeonButton
+            variant="primary"
+            size="lg"
+            className="w-full"
+            onClick={handleContinue}
+            disabled={!isValid || !hasLocation}
+          >
+            Fortsæt
+          </NeonButton>
+        </section>
       </main>
 
-      {/* Continue Button */}
-      <footer className="mt-8 pb-4">
-        <NeonButton
-          onClick={handleContinue}
-          disabled={!canContinue}
-          size="xl"
-          className="w-full"
-        >
-          Fortsæt
-        </NeonButton>
-        {!canContinue && (
-          <p className="text-center text-sm text-muted-foreground mt-3">
-            {getValidationMessage()}
-          </p>
-        )}
+      <footer className="py-4 text-center text-xs text-muted-foreground">
+        Data fra OpenStreetMap / Nominatim
       </footer>
     </div>
   );
