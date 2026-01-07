@@ -1,4 +1,3 @@
-
 // ============================================================================
 // AFSNIT 00 – Imports
 // ============================================================================
@@ -67,7 +66,7 @@ export function toMeters(km: number) {
 }
 
 // ---------------------------------------------------------------------------
-// AFSNIT 03A – Læs land fra nv_trip (uden at crashe)
+// AFSNIT 03A – Læs land fra nv_trip (robust, ingen crash)
 // ---------------------------------------------------------------------------
 function readTripCountry(): { countryName?: string; countryCode?: string } {
   try {
@@ -75,6 +74,7 @@ function readTripCountry(): { countryName?: string; countryCode?: string } {
     if (!raw) return {};
 
     const parsed = JSON.parse(raw) as any;
+
     const countryName = typeof parsed?.countryName === "string" ? parsed.countryName : undefined;
     const countryCode = typeof parsed?.countryCode === "string" ? parsed.countryCode : undefined;
 
@@ -100,7 +100,7 @@ type Props = {
   onRadiusChange?: (km: RadiusKm) => void;
   onScopeChange?: (scope: Scope) => void;
 
-  // Labels (så vi kan genbruge samme UI på flere sider)
+  // Labels
   radiusLabel?: string;
   scopeLabel?: string;
 };
@@ -119,17 +119,19 @@ export default function SearchControls({
   scopeLabel = "Område:",
 }: Props) {
   // -------------------------------------------------------------------------
-  // AFSNIT 05A – Dynamisk land-label (fra nv_trip)
+  // AFSNIT 05A – Dynamisk land (fra nv_trip)
   // -------------------------------------------------------------------------
   const { countryName, countryCode } = readTripCountry();
-
-  // Hvis vi står på "dk" men rejsen ikke er DK → fallback til nearby,
-  // så brugeren ikke bliver låst i “Danmark” ved udlandet.
-  const safeScope: Scope =
-    scope === "dk" && countryCode && countryCode.toLowerCase() !== "dk" ? "nearby" : scope;
-
-  // Bestem hvilket "country"-valg vi viser i dropdown
   const isDK = (countryCode || "").toLowerCase() === "dk";
+
+  // Hvis scope er "dk" men landet ikke er DK → fallback til nearby
+  // (det er præcis det, der giver 0 resultater i Tokyo/Paris)
+  const safeScope: Scope =
+    scope === "dk" && countryCode && !isDK ? "nearby" : scope;
+
+  // Dropdown-option for "kun land"
+  // - DK: behold "dk" for backward compat
+  // - Udland: brug "country"
   const countryOptionValue: Scope = isDK ? "dk" : "country";
   const countryOptionLabel = isDK
     ? "Kun Danmark"
@@ -182,8 +184,6 @@ export default function SearchControls({
             value={safeScope}
             onChange={(e) => {
               const raw = e.target.value as Scope;
-
-              // Tillad: nearby / dk / country
               const next: Scope =
                 raw === "dk" ? "dk" : raw === "country" ? "country" : "nearby";
 
@@ -192,8 +192,6 @@ export default function SearchControls({
             }}
           >
             <option value="nearby">Nærområde (kan krydse grænser)</option>
-
-            {/* Vis enten “Kun Danmark” (DK) eller “Kun {land}” (udland) */}
             <option value={countryOptionValue}>{countryOptionLabel}</option>
           </select>
         </div>
