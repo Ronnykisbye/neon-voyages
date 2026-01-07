@@ -131,9 +131,7 @@ const Index = () => {
   // --------------------------------------------------------------------------
   // AFSNIT 04A – GPS (robust retry: high accuracy -> low accuracy)
   // --------------------------------------------------------------------------
-  const getPosition = (
-    options: PositionOptions
-  ): Promise<GeolocationPosition> => {
+  const getPosition = (options: PositionOptions): Promise<GeolocationPosition> => {
     return new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(resolve, reject, options);
     });
@@ -261,7 +259,8 @@ const Index = () => {
         {/* Continue */}
         <section className="pt-2">
           <NeonButton
-            variant="primary"
+            // ✅ FIX: "primary" findes ikke i NeonButton – brug "default"
+            variant="default"
             size="lg"
             className="w-full"
             onClick={handleContinue}
