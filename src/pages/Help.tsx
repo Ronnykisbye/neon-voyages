@@ -1,7 +1,7 @@
 // ======================================================
 // AFSNIT 01 – Imports
 // ======================================================
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Phone, MapPin, AlertTriangle } from "lucide-react";
 
 import { useTrip } from "@/context/TripContext";
@@ -10,7 +10,6 @@ import { queryOverpass } from "@/services/overpass";
 import SearchControls from "@/components/SearchControls";
 import { PlaceCard } from "@/components/PlaceCard";
 import { TripGuard } from "@/components/TripGuard";
-
 
 // ======================================================
 // AFSNIT 02 – Typer & konstanter
@@ -34,12 +33,7 @@ const OSM_FILTERS: Record<HelpType, string[]> = {
 // ======================================================
 function extractPhone(tags: any): string | null {
   if (!tags) return null;
-  const raw =
-    tags["contact:phone"] ||
-    tags.phone ||
-    tags["phone:mobile"] ||
-    null;
-
+  const raw = tags["contact:phone"] || tags.phone || tags["phone:mobile"] || null;
   if (!raw) return null;
 
   // Rens nummer (bevar +)
@@ -51,6 +45,7 @@ function extractPhone(tags: any): string | null {
 // ======================================================
 function HelpContent() {
   const { trip } = useTrip();
+
   const [type, setType] = useState<HelpType>("hospital");
   const [radiusKm, setRadiusKm] = useState(6);
   const [items, setItems] = useState<any[]>([]);
@@ -87,104 +82,102 @@ function HelpContent() {
   }, [type, radiusKm, trip, hasLocation]);
 
   // ====================================================
-  // AFSNIT 06 – UI
+  // AFSNIT 06 – UI (layout fix: max width + centered)
   // ====================================================
   if (!hasLocation) {
     return (
-      <div className="p-4">
-        <p>Vælg en destination for at finde hjælp.</p>
+      <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
+        <main className="flex-1 space-y-4 pb-6">
+          <p>Vælg en destination for at finde hjælp.</p>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-4">
-      {/* VIGTIG ADVARSEL */}
-      <div className="rounded-xl border border-red-300 bg-red-50 p-4">
-        <div className="flex gap-3">
-          <AlertTriangle className="text-red-600" />
-          <p className="text-sm">
-            Brug altid officielle kilder i nødsituationer. Appen viser kun
-            verificerede steddata – ikke nødnumre.
-          </p>
+    <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
+      <main className="flex-1 space-y-6 pb-6">
+        {/* VIGTIG ADVARSEL */}
+        <div className="rounded-xl border border-red-300 bg-red-50 p-4">
+          <div className="flex gap-3">
+            <AlertTriangle className="text-red-600" />
+            <p className="text-sm">
+              Brug altid officielle kilder i nødsituationer. Appen viser kun verificerede
+              steddata – ikke nødnumre.
+            </p>
+          </div>
         </div>
-      </div>
 
-      {/* SOS INTERNATIONAL – ALTID */}
-      <a
-        href="https://www.sos.eu/da"
-        target="_blank"
-        rel="noreferrer"
-        className="rounded-xl border-2 border-blue-500 p-4 block bg-blue-50"
-      >
-        <strong>SOS International</strong>
-        <p className="text-sm mt-1">
-          Dansk rejseservice – kontakt denne ved alvorlige problemer i udlandet.
-        </p>
-      </a>
+        {/* SOS INTERNATIONAL – ALTID */}
+        <a
+          href="https://www.sos.eu/da"
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-xl border-2 border-blue-500 p-4 block bg-blue-50"
+        >
+          <strong>SOS International</strong>
+          <p className="text-sm mt-1">
+            Dansk rejseservice – kontakt denne ved alvorlige problemer i udlandet.
+          </p>
+        </a>
 
-      {/* TYPE VALG */}
-      <div className="flex gap-2">
-        {HELP_TYPES.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setType(t.key)}
-            className={`px-3 py-2 rounded-lg text-sm ${
-              type === t.key ? "bg-primary text-white" : "bg-muted"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+        {/* TYPE VALG */}
+        <div className="flex gap-2 flex-wrap">
+          {HELP_TYPES.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setType(t.key)}
+              className={`px-3 py-2 rounded-lg text-sm ${
+                type === t.key ? "bg-primary text-white" : "bg-muted"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-      {/* SEARCH CONTROLS */}
-      <SearchControls
-        radiusKm={radiusKm}
-        onRadiusChange={setRadiusKm}
-        showScope={false}
-      />
+        {/* SEARCH CONTROLS */}
+        <SearchControls radiusKm={radiusKm} onRadiusChange={setRadiusKm} showScope={false} />
 
-      {/* RESULTATER */}
-      {loading && <p>Finder hjælp i nærheden…</p>}
+        {/* RESULTATER */}
+        {loading && <p>Finder hjælp i nærheden…</p>}
 
-      {!loading && items.length === 0 && (
-        <p>Ingen steder fundet. Prøv at øge afstanden.</p>
-      )}
+        {!loading && items.length === 0 && <p>Ingen steder fundet. Prøv at øge afstanden.</p>}
 
-      <div className="space-y-4">
-        {items.slice(0, 15).map((item) => {
-          const phone = extractPhone(item.tags);
+        <div className="space-y-4">
+          {items.slice(0, 15).map((item) => {
+            const phone = extractPhone(item.tags);
 
-          return (
-            <div key={item.id} className="rounded-xl border p-3 space-y-2">
-              <PlaceCard element={item} />
+            return (
+              <div key={item.id} className="rounded-xl border p-3 space-y-2">
+                <PlaceCard element={item} />
 
-              <div className="flex gap-2">
-                {phone && (
+                <div className="flex gap-2 flex-wrap">
+                  {phone && (
+                    <a
+                      href={`tel:${phone}`}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-600 text-white text-sm"
+                    >
+                      <Phone className="h-4 w-4" />
+                      Ring
+                    </a>
+                  )}
+
                   <a
-                    href={`tel:${phone}`}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-600 text-white text-sm"
+                    href={`https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted text-sm"
                   >
-                    <Phone className="h-4 w-4" />
-                    Ring
+                    <MapPin className="h-4 w-4" />
+                    Rute
                   </a>
-                )}
-
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted text-sm"
-                >
-                  <MapPin className="h-4 w-4" />
-                  Rute
-                </a>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      </main>
     </div>
   );
 }
