@@ -11,6 +11,7 @@ import SearchControls from "@/components/SearchControls";
 import PlaceCard from "@/components/PlaceCard";
 import TripGuard from "@/components/TripGuard";
 
+
 // ======================================================
 // AFSNIT 02 – Typer & konstanter
 // ======================================================
