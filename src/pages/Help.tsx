@@ -1,96 +1,189 @@
+// ============================================================================
+// AFSNIT 00 – Imports
+// ============================================================================
 import React from "react";
-import { Phone, Shield, Building2, Heart, ExternalLink, AlertTriangle } from "lucide-react";
+import { AlertTriangle, Phone, ExternalLink, Info } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { NeonCard } from "@/components/ui/NeonCard";
 import { TripGuard } from "@/components/TripGuard";
-import { TripDebug } from "@/components/TripDebug";
 import { useTrip } from "@/context/TripContext";
 
-const genericEmergency = [
-  { label: "Nødhjælp (EU)", icon: <Phone className="h-6 w-6" />, number: "112", description: "Fælles nødnummer i EU - politi, brand, ambulance" },
-  { label: "Politi", icon: <Shield className="h-6 w-6" />, number: "112", description: "Ring 112 for politi i de fleste lande" },
-  { label: "Ambulance", icon: <Heart className="h-6 w-6" />, number: "112", description: "Ring 112 for akut lægehjælp i de fleste lande" },
-];
+// ============================================================================
+// AFSNIT 01 – Hjælpere (sikre, konservative)
+// ============================================================================
+function getCountryCodeLower(trip: any): string | undefined {
+  const cc =
+    trip?.location?.countryCode ||
+    trip?.countryCode ||
+    trip?.location?.country_code;
+  return typeof cc === "string" ? cc.toLowerCase() : undefined;
+}
 
+function getCityName(trip: any): string | undefined {
+  return trip?.location?.name || trip?.destination || undefined;
+}
+
+// EU/EØS (112 gælder)
+// NOTE: Konservativ liste. 112 er fælles EU-nødnummer.
+const EU_EEA = new Set([
+  "dk","se","no","fi","is",
+  "de","fr","it","es","pt","nl","be","lu","at","ie",
+  "pl","cz","sk","hu","si","hr","ro","bg","ee","lv","lt","mt","cy","gr"
+]);
+
+function isEUorEEA(countryCodeLower?: string) {
+  return !!countryCodeLower && EU_EEA.has(countryCodeLower);
+}
+
+// ============================================================================
+// AFSNIT 02 – Content
+// ============================================================================
 function HelpContent() {
   const { trip } = useTrip();
 
+  const city = getCityName(trip);
+  const cc = getCountryCodeLower(trip);
+  const inEU = isEUorEEA(cc);
+
+  const googleQuery = encodeURIComponent(
+    `${city || ""} emergency number ${cc || ""}`.trim()
+  );
+
   return (
     <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
-      <PageHeader title="Hjælp & Nødhjælp" subtitle={trip.destination} />
+      <PageHeader title="Hjælp" subtitle={trip.destination} />
 
       <main className="flex-1 space-y-4 pb-6">
-        <NeonCard variant="accent" className="border-accent/30">
+        {/* ------------------------------------------------------------
+           AFSNIT 03 – Vigtig advarsel (altid vist)
+        ------------------------------------------------------------ */}
+        <NeonCard padding="sm" className="border-l-4 border-pink-400">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="h-6 w-6 text-accent flex-shrink-0" />
+            <AlertTriangle className="h-5 w-5 text-pink-500 mt-0.5" />
             <div>
-              <h3 className="font-semibold text-foreground">Vigtigt</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Nødnumre varierer fra land til land. Tjek altid de officielle kilder for dit rejsemål før afrejse.
+              <div className="font-semibold">Vigtigt</div>
+              <p className="text-sm text-muted-foreground">
+                Nødnumre varierer fra land til land. Tjek altid officielle
+                kilder for dit rejsemål.
               </p>
             </div>
           </div>
         </NeonCard>
 
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide pt-2">Generelle nødnumre</h3>
+        {/* ------------------------------------------------------------
+           AFSNIT 04 – Generelle nødnumre (EU kun)
+        ------------------------------------------------------------ */}
+        {inEU && (
+          <>
+            <div className="text-xs font-semibold tracking-wide text-muted-foreground">
+              GENERELLE NØDNUMRE ({cc?.toUpperCase()})
+            </div>
 
-        {genericEmergency.map((item) => (
-          <NeonCard key={item.label} variant="interactive">
-            <div className="flex items-center gap-4">
-              <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">{item.icon}</div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-foreground">{item.label}</h3>
-                <p className="text-sm text-muted-foreground">{item.description}</p>
+            <NeonCard padding="sm">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Phone className="h-5 w-5 text-primary" />
+                  <div>
+                    <div className="font-semibold">Nødhjælp (EU)</div>
+                    <div className="text-sm text-muted-foreground">
+                      Fælles nødnummer i EU (politi, brand, ambulance)
+                    </div>
+                  </div>
+                </div>
+                <a
+                  href="tel:112"
+                  className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-primary-foreground"
+                >
+                  Ring 112
+                </a>
               </div>
-              <a href={`tel:${item.number}`} className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-neon-primary hover:shadow-[0_0_35px_hsl(180_100%_60%/0.6)] transition-all active:scale-95">
-                <Phone className="h-5 w-5" />
-              </a>
+            </NeonCard>
+          </>
+        )}
+
+        {!inEU && (
+          <NeonCard padding="sm">
+            <div className="flex items-start gap-3">
+              <Info className="h-5 w-5 text-muted-foreground mt-0.5" />
+              <div>
+                <div className="font-semibold">Nødnumre kan variere</div>
+                <p className="text-sm text-muted-foreground">
+                  Appen kan ikke verificere lokale nødnumre automatisk for dette
+                  land. Brug officielle kilder nedenfor.
+                </p>
+              </div>
             </div>
           </NeonCard>
-        ))}
+        )}
 
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide pt-4">Danske ambassader</h3>
+        {/* ------------------------------------------------------------
+           AFSNIT 05 – Danske ambassader & officielle kilder
+        ------------------------------------------------------------ */}
+        <div className="text-xs font-semibold tracking-wide text-muted-foreground">
+          DANSKE AMBASSADER & OFFICIELLE KILDER
+        </div>
 
-        <NeonCard variant="interactive">
-          <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-xl bg-secondary flex items-center justify-center text-secondary-foreground flex-shrink-0">
-              <Building2 className="h-6 w-6" />
+        <NeonCard padding="sm">
+          <a
+            href="https://um.dk/rejse-og-ophold/ambassader-og-konsulater"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between gap-3"
+          >
+            <div>
+              <div className="font-semibold">Find dansk ambassade</div>
+              <div className="text-sm text-muted-foreground">
+                Udenrigsministeriets oversigt
+              </div>
             </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-foreground">Find dansk ambassade</h3>
-              <p className="text-sm text-muted-foreground">Udenrigsministeriets oversigt</p>
-            </div>
-          </div>
-          <a href="https://um.dk/rejse-og-ophold/find-ambassade-eller-konsulat" target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">
-            <ExternalLink className="h-3.5 w-3.5" />
-            Åbn um.dk
+            <ExternalLink className="h-4 w-4 text-muted-foreground" />
           </a>
         </NeonCard>
 
-        <div className="space-y-3 pt-4">
-          <a href="https://um.dk/rejse-og-ophold/rejse-til-udlandet/rejsevejledninger" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:shadow-neon-primary hover:border-primary/50 transition-all">
+        <NeonCard padding="sm">
+          <a
+            href="https://um.dk/rejse-og-ophold/rejsevejledninger"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between gap-3"
+          >
             <div>
-              <span className="font-medium">Rejsevejledninger</span>
-              <p className="text-sm text-muted-foreground">Udenrigsministeriet</p>
+              <div className="font-semibold">Rejsevejledninger</div>
+              <div className="text-sm text-muted-foreground">
+                Udenrigsministeriet
+              </div>
             </div>
-            <ExternalLink className="h-4 w-4 text-primary" />
+            <ExternalLink className="h-4 w-4 text-muted-foreground" />
           </a>
+        </NeonCard>
 
-          <a href={`https://www.google.com/search?q=${encodeURIComponent(trip.destination + " emergency numbers")}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:shadow-neon-primary hover:border-primary/50 transition-all">
+        {/* ------------------------------------------------------------
+           AFSNIT 06 – Søg nødnumre for destinationen (altid)
+        ------------------------------------------------------------ */}
+        <NeonCard padding="sm">
+          <a
+            href={`https://www.google.com/search?q=${googleQuery}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between gap-3"
+          >
             <div>
-              <span className="font-medium">Søg nødnumre for destinationen</span>
-              <p className="text-sm text-muted-foreground">Google søgning</p>
+              <div className="font-semibold">Søg nødnumre for destinationen</div>
+              <div className="text-sm text-muted-foreground">
+                Google-søgning ({city || "destination"})
+              </div>
             </div>
-            <ExternalLink className="h-4 w-4 text-primary" />
+            <ExternalLink className="h-4 w-4 text-muted-foreground" />
           </a>
-        </div>
+        </NeonCard>
       </main>
-
-      <TripDebug />
     </div>
   );
 }
 
+// ============================================================================
+// AFSNIT 07 – Export
+// ============================================================================
 export default function Help() {
   return (
     <TripGuard>
