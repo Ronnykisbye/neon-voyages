@@ -125,13 +125,10 @@ export default function SearchControls({
   const isDK = (countryCode || "").toLowerCase() === "dk";
 
   // Hvis scope er "dk" men landet ikke er DK → fallback til nearby
-  // (det er præcis det, der giver 0 resultater i Tokyo/Paris)
   const safeScope: Scope =
     scope === "dk" && countryCode && !isDK ? "nearby" : scope;
 
   // Dropdown-option for "kun land"
-  // - DK: behold "dk" for backward compat
-  // - Udland: brug "country"
   const countryOptionValue: Scope = isDK ? "dk" : "country";
   const countryOptionLabel = isDK
     ? "Kun Danmark"
