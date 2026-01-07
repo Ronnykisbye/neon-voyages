@@ -10,7 +10,6 @@ import { PlaceSkeleton } from "@/components/PlaceSkeleton";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { TripGuard } from "@/components/TripGuard";
-import { TripDebug } from "@/components/TripDebug";
 import SearchStatusBar from "@/components/SearchStatusBar";
 import { useTrip } from "@/context/TripContext";
 import {
@@ -18,15 +17,17 @@ import {
   getCacheKey,
   getFromCache,
   setCache,
-  buildMarketsQuery,
   type OverpassElement,
 } from "@/services/overpass";
 
-// ✅ Fælles km-vælger
+// ✅ Fælles SearchControls (samme som Seværdigheder)
 import SearchControls, {
   readRadiusKm,
+  readScope,
+  writeScope,
   toMeters,
   type RadiusKm,
+  type Scope,
 } from "@/components/SearchControls";
 
 // ============================================================================
@@ -35,30 +36,89 @@ import SearchControls, {
 const DEFAULT_RADIUS_KM: RadiusKm = 6;
 
 // ============================================================================
-// AFSNIT 02 – Hovedkomponent (Content)
+// AFSNIT 02 – Helpers
+// ============================================================================
+function getTripCountryCode(trip: any): string | undefined {
+  const cc =
+    trip?.location?.countryCode ||
+    trip?.countryCode ||
+    trip?.location?.country_code;
+  return typeof cc === "string" ? cc.toLowerCase() : undefined;
+}
+
+// ============================================================================
+// AFSNIT 03 – Overpass query (Markets)
+// ============================================================================
+function buildMarketsQuery(
+  lat: number,
+  lon: number,
+  radiusMeters: number,
+  scope: Scope,
+  countryCodeLower?: string
+) {
+  const wantsDK = scope === "dk";
+  const wantsCountry = scope === "country" && !!countryCodeLower;
+
+  const iso = wantsDK
+    ? "DK"
+    : wantsCountry
+      ? countryCodeLower.toUpperCase()
+      : "";
+
+  const areaDef = iso
+    ? `
+area["ISO3166-1"="${iso}"][admin_level=2]->.countryArea;
+`
+    : "";
+
+  const areaFilter = iso ? "(area.countryArea)" : "";
+
+  return `
+[out:json][timeout:25];
+${areaDef}
+(
+  nwr(around:${radiusMeters},${lat},${lon})["shop"="marketplace"]${areaFilter};
+  nwr(around:${radiusMeters},${lat},${lon})["amenity"="marketplace"]${areaFilter};
+);
+out center tags;
+`;
+}
+
+// ============================================================================
+// AFSNIT 04 – Content
 // ============================================================================
 function MarketsContent() {
   const { trip } = useTrip();
 
   // --------------------------------------------------------------------------
-  // AFSNIT 02A – State
+  // State
   // --------------------------------------------------------------------------
-  const [markets, setMarkets] = useState<OverpassElement[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [items, setItems] = useState<OverpassElement[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fælles radius (fra localStorage)
   const [baseRadiusKm, setBaseRadiusKm] = useState<RadiusKm>(() =>
     readRadiusKm(DEFAULT_RADIUS_KM)
   );
-
-  // Den radius vi faktisk endte med at søge i (kan auto-udvides)
   const [radiusUsedMeters, setRadiusUsedMeters] = useState<number>(
     toMeters(baseRadiusKm)
   );
 
+  const [scope, setScope] = useState<Scope>(() => readScope("nearby"));
+
   // --------------------------------------------------------------------------
-  // AFSNIT 02B – Fetch (med forceRefresh)
+  // Auto-fallback: DK → nearby i udlandet
+  // --------------------------------------------------------------------------
+  useEffect(() => {
+    const cc = getTripCountryCode(trip);
+    if (scope === "dk" && cc && cc !== "dk") {
+      setScope("nearby");
+      writeScope("nearby");
+    }
+  }, [trip, scope]);
+
+  // --------------------------------------------------------------------------
+  // Fetch
   // --------------------------------------------------------------------------
   const fetchMarkets = useCallback(
     async (opts?: { forceRefresh?: boolean }) => {
@@ -74,18 +134,28 @@ function MarketsContent() {
       setError(null);
 
       const { lat, lon } = trip.location;
+      const countryCodeLower = getTripCountryCode(trip);
 
-      // Cache key inkluderer radius
+      const safeScope: Scope =
+        scope === "dk" && countryCodeLower && countryCodeLower !== "dk"
+          ? "nearby"
+          : scope === "country" && !countryCodeLower
+            ? "nearby"
+            : scope;
+
+      const scopeKey =
+        safeScope === "country" ? `country-${countryCodeLower}` : safeScope;
+
       const cacheKey = getCacheKey(
         lat,
         lon,
-        `markets-r${baseRadiusKm}km`
+        `markets-${scopeKey}-r${baseRadiusKm}km`
       );
 
       if (!forceRefresh) {
         const cached = getFromCache<OverpassElement[]>(cacheKey);
         if (cached) {
-          setMarkets(cached);
+          setItems(cached);
           setLoading(false);
           return;
         }
@@ -96,12 +166,19 @@ function MarketsContent() {
         new Set([baseMeters, Math.max(12000, baseMeters * 2), 20000])
       ).sort((a, b) => a - b);
 
-      for (const radius of radiusSteps) {
-        const query = buildMarketsQuery(lat, lon, radius);
+      for (const radiusMeters of radiusSteps) {
+        const query = buildMarketsQuery(
+          lat,
+          lon,
+          radiusMeters,
+          safeScope,
+          countryCodeLower
+        );
+
         const result = await queryOverpass(query);
 
         if (result.error) {
-          if (radius === radiusSteps[radiusSteps.length - 1]) {
+          if (radiusMeters === radiusSteps[radiusSteps.length - 1]) {
             setError(result.error);
             setLoading(false);
             return;
@@ -111,42 +188,39 @@ function MarketsContent() {
 
         const results = (result.data || []).filter((el) => el.tags?.name);
 
-        if (results.length >= 5 || radius === radiusSteps[radiusSteps.length - 1]) {
+        if (
+          results.length >= 8 ||
+          radiusMeters === radiusSteps[radiusSteps.length - 1]
+        ) {
           const sliced = results.slice(0, 30);
-          setMarkets(sliced);
-          setRadiusUsedMeters(radius);
+          setItems(sliced);
+          setRadiusUsedMeters(radiusMeters);
           setCache(cacheKey, sliced);
           setLoading(false);
           return;
         }
       }
 
-      setMarkets([]);
+      setItems([]);
       setLoading(false);
     },
-    [trip.location, baseRadiusKm]
+    [trip, scope, baseRadiusKm]
   );
 
-  // --------------------------------------------------------------------------
-  // AFSNIT 02C – Auto-fetch ved load / radius-ændring
-  // --------------------------------------------------------------------------
   useEffect(() => {
     fetchMarkets();
   }, [fetchMarkets]);
 
-  const status = loading ? "loading" : markets.length > 0 ? "done" : "empty";
+  const status = loading ? "loading" : items.length > 0 ? "done" : "empty";
 
-  // ========================================================================
-  // AFSNIT 03 – UI
-  // ========================================================================
+  // --------------------------------------------------------------------------
+  // UI
+  // --------------------------------------------------------------------------
   return (
     <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
-      <PageHeader title="Markeder & Butikker" subtitle={trip.destination} />
+      <PageHeader title="Markeder" subtitle={trip.destination} />
 
       <main className="flex-1 space-y-4 pb-6">
-        {/* ------------------------------------------------------------
-           AFSNIT 03A – Info + km-vælger
-        ------------------------------------------------------------ */}
         <NeonCard padding="sm">
           <div className="flex items-start gap-2">
             <Info className="h-4 w-4 mt-0.5 text-muted-foreground" />
@@ -157,15 +231,18 @@ function MarketsContent() {
 
               <div className="mt-3">
                 <SearchControls
-                  showRadius={true}
-                  showScope={false}
+                  showRadius
+                  showScope
                   radiusKm={baseRadiusKm}
+                  scope={scope}
                   onRadiusChange={(km) => {
                     setBaseRadiusKm(km);
-                    setTimeout(
-                      () => fetchMarkets({ forceRefresh: true }),
-                      0
-                    );
+                    setTimeout(() => fetchMarkets({ forceRefresh: true }), 0);
+                  }}
+                  onScopeChange={(next) => {
+                    setScope(next);
+                    writeScope(next);
+                    setTimeout(() => fetchMarkets({ forceRefresh: true }), 0);
                   }}
                 />
               </div>
@@ -173,17 +250,11 @@ function MarketsContent() {
           </div>
         </NeonCard>
 
-        {/* ------------------------------------------------------------
-           AFSNIT 03B – Status + Søg igen
-        ------------------------------------------------------------ */}
         <SearchStatusBar
           status={status}
           onRetry={() => fetchMarkets({ forceRefresh: true })}
         />
 
-        {/* ------------------------------------------------------------
-           AFSNIT 03C – Loading
-        ------------------------------------------------------------ */}
         {loading && (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
@@ -192,9 +263,6 @@ function MarketsContent() {
           </div>
         )}
 
-        {/* ------------------------------------------------------------
-           AFSNIT 03D – Error
-        ------------------------------------------------------------ */}
         {!loading && error && (
           <ErrorState
             message={error}
@@ -202,53 +270,42 @@ function MarketsContent() {
           />
         )}
 
-        {/* ------------------------------------------------------------
-           AFSNIT 03E – Resultater
-        ------------------------------------------------------------ */}
-        {!loading && !error && markets.length > 0 && (
+        {!loading && !error && items.length > 0 && (
           <div className="space-y-4">
-            {markets.map((market) => (
-              <PlaceCard key={`${market.type}_${market.id}`} element={market} />
+            {items.map((el) => (
+              <PlaceCard key={`${el.type}_${el.id}`} element={el} />
             ))}
           </div>
         )}
 
-        {/* ------------------------------------------------------------
-           AFSNIT 03F – Empty
-        ------------------------------------------------------------ */}
-        {!loading && !error && markets.length === 0 && (
+        {!loading && !error && items.length === 0 && (
           <EmptyState
             title="Ingen markeder fundet"
-            message="Prøv at øge afstanden eller tryk 'Søg igen'."
+            message="Tryk 'Søg igen' eller prøv at øge afstanden."
           />
         )}
 
-        {/* ------------------------------------------------------------
-           AFSNIT 03G – Datakilde
-        ------------------------------------------------------------ */}
         <NeonCard padding="sm">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Datakilde</span>
             <a
-              href="https://www.openstreetmap.org/"
+              href="https://www.openstreetmap.org/copyright"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
             >
               <ExternalLink className="h-3.5 w-3.5" />
-              OpenStreetMap
+              © OpenStreetMap
             </a>
           </div>
         </NeonCard>
       </main>
-
-      <TripDebug />
     </div>
   );
 }
 
 // ============================================================================
-// AFSNIT 04 – Export wrapper med TripGuard
+// AFSNIT 05 – Export
 // ============================================================================
 export default function Markets() {
   return (
