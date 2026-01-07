@@ -9,7 +9,7 @@ import { queryOverpass } from "@/services/overpass";
 
 import SearchControls from "@/components/SearchControls";
 import { PlaceCard } from "@/components/PlaceCard";
-import TripGuard from "@/components/TripGuard";
+import { TripGuard } from "@/components/TripGuard";
 
 
 // ======================================================
