@@ -1,157 +1,178 @@
 // ============================================================================
 // AFSNIT 00 – Imports
 // ============================================================================
-import React from "react";
-import {
-  ExternalLink,
-  Globe,
-  Calendar,
-  MapPin,
-  Info,
-  Facebook,
-  Search,
-} from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { ExternalLink, Calendar, Info } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { NeonCard } from "@/components/ui/NeonCard";
+import { EmptyState } from "@/components/EmptyState";
 import { TripGuard } from "@/components/TripGuard";
-import { TripDebug } from "@/components/TripDebug";
 import { useTrip } from "@/context/TripContext";
 
-// ✅ Fælles km-vælger
+// Fælles SearchControls (samme scope-logik som resten)
 import SearchControls, {
-  readRadiusKm,
-  type RadiusKm,
+  readScope,
+  writeScope,
+  type Scope,
 } from "@/components/SearchControls";
 
 // ============================================================================
-// AFSNIT 01 – Konstanter
+// AFSNIT 01 – Hjælpere
 // ============================================================================
-const DEFAULT_RADIUS_KM: RadiusKm = 6;
+function getTripCountryCode(trip: any): string | undefined {
+  const cc =
+    trip?.location?.countryCode ||
+    trip?.countryCode ||
+    trip?.location?.country_code;
+  return typeof cc === "string" ? cc.toLowerCase() : undefined;
+}
+
+function getCityName(trip: any): string | undefined {
+  return (
+    trip?.location?.name ||
+    trip?.destination ||
+    undefined
+  );
+}
 
 // ============================================================================
-// AFSNIT 02 – Content
+// AFSNIT 02 – Eksterne, sikre event-links (ingen scraping)
+// ============================================================================
+function buildEventLinks(city?: string, countryCodeLower?: string) {
+  if (!city) return [];
+
+  const q = encodeURIComponent(city);
+
+  return [
+    {
+      title: "Eventbrite",
+      description: `Officielle events i ${city}`,
+      url: `https://www.eventbrite.com/d/${countryCodeLower || ""}/${q}/`,
+    },
+    {
+      title: "Facebook Events",
+      description: `Lokale begivenheder i ${city}`,
+      url: `https://www.facebook.com/events/search/?q=${q}`,
+    },
+    {
+      title: "TimeOut",
+      description: `Kultur og events i ${city}`,
+      url: `https://www.timeout.com/search?q=${q}`,
+    },
+    {
+      title: "Google Events",
+      description: `Events i ${city} (Google)`,
+      url: `https://www.google.com/search?q=events+in+${q}`,
+    },
+  ];
+}
+
+// ============================================================================
+// AFSNIT 03 – Content
 // ============================================================================
 function EventsContent() {
   const { trip } = useTrip();
-  const destination = encodeURIComponent(trip.destination);
 
-  // Fælles radius (bruges kun til kontekst/UX her)
-  const [radiusKm, setRadiusKm] = React.useState<RadiusKm>(() =>
-    readRadiusKm(DEFAULT_RADIUS_KM)
-  );
+  const city = getCityName(trip);
+  const countryCodeLower = getTripCountryCode(trip);
 
-  const externalLinks = [
-    {
-      label: "Google Events",
-      description: "Søg efter events i Google",
-      url: `https://www.google.com/search?q=events+in+${destination}`,
-      icon: <Search className="h-5 w-5" />,
-    },
-    {
-      label: "Facebook Events",
-      description: "Se events på Facebook",
-      url: `https://www.facebook.com/events/search?q=${destination}`,
-      icon: <Facebook className="h-5 w-5" />,
-    },
-    {
-      label: "Tripadvisor Aktiviteter",
-      description: "Ting at lave på Tripadvisor",
-      url: `https://www.tripadvisor.com/Search?q=${destination}`,
-      icon: <Globe className="h-5 w-5" />,
-    },
-    {
-      label: "Eventbrite",
-      description: "Koncerter, workshops og mere",
-      url: `https://www.eventbrite.com/d/nearby--${destination}/events/`,
-      icon: <Calendar className="h-5 w-5" />,
-    },
-    {
-      label: "Meetup",
-      description: "Lokale arrangementer og grupper",
-      url: `https://www.meetup.com/find/?location=${destination}&source=EVENTS`,
-      icon: <MapPin className="h-5 w-5" />,
-    },
-  ];
+  const [scope, setScope] = useState<Scope>(() => readScope("nearby"));
+
+  // --------------------------------------------------------------------------
+  // Auto-fallback: DK → nearby i udlandet
+  // --------------------------------------------------------------------------
+  useEffect(() => {
+    if (scope === "dk" && countryCodeLower && countryCodeLower !== "dk") {
+      setScope("nearby");
+      writeScope("nearby");
+    }
+  }, [scope, countryCodeLower]);
+
+  // --------------------------------------------------------------------------
+  // Events-links (memoized)
+  // --------------------------------------------------------------------------
+  const links = useMemo(() => {
+    if (!city) return [];
+    return buildEventLinks(city, countryCodeLower);
+  }, [city, countryCodeLower]);
 
   // ==========================================================================
-  // AFSNIT 03 – UI
+  // UI
   // ==========================================================================
   return (
     <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
-      <PageHeader title="Lokale tips & kalender" subtitle={trip.destination} />
+      <PageHeader title="Events" subtitle={trip.destination} />
 
       <main className="flex-1 space-y-4 pb-6">
         {/* ------------------------------------------------------------
-           AFSNIT 03A – Info + km-vælger
+           AFSNIT 04A – Info + scope
         ------------------------------------------------------------ */}
         <NeonCard padding="sm">
           <div className="flex items-start gap-2">
-            <Info className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+            <Info className="h-4 w-4 mt-0.5 text-muted-foreground" />
             <div className="w-full">
               <p className="text-sm text-muted-foreground">
-                Søger inden for {radiusKm} km fra centrum.
+                Vi viser sikre eksterne kilder til events i området.
               </p>
 
               <div className="mt-3">
                 <SearchControls
-                  showRadius={true}
-                  showScope={false}
-                  radiusKm={radiusKm}
-                  onRadiusChange={(km) => setRadiusKm(km)}
+                  showRadius={false}
+                  showScope={true}
+                  radiusKm={6}
+                  scope={scope}
+                  onScopeChange={(next) => {
+                    setScope(next);
+                    writeScope(next);
+                  }}
                 />
               </div>
-
-              <p className="mt-3 text-xs text-muted-foreground">
-                Events og lokale begivenheder kræver direkte søgning på de
-                officielle platforme. Vi henter ingen data automatisk.
-              </p>
             </div>
           </div>
         </NeonCard>
 
         {/* ------------------------------------------------------------
-           AFSNIT 03B – Eksterne links
+           AFSNIT 04B – Links
         ------------------------------------------------------------ */}
-        <div className="space-y-3">
-          {externalLinks.map((link) => (
-            <a
-              key={link.label}
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:shadow-neon-primary hover:border-primary/50 transition-all active:scale-[0.98]"
-            >
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                {link.icon}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-medium text-foreground">{link.label}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {link.description}
-                </p>
-              </div>
-              <ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            </a>
-          ))}
-        </div>
+        {links.length === 0 && (
+          <EmptyState
+            title="Ingen events kan vises"
+            message="Vælg en destination først."
+          />
+        )}
 
-        {/* ------------------------------------------------------------
-           AFSNIT 03C – Kilde-note
-        ------------------------------------------------------------ */}
-        <NeonCard padding="sm">
-          <p className="text-xs text-muted-foreground text-center">
-            Alle links åbner i en ny fane på de officielle platforme.
-          </p>
-        </NeonCard>
+        {links.length > 0 && (
+          <div className="space-y-3">
+            {links.map((link) => (
+              <NeonCard key={link.title} padding="sm">
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between gap-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <Calendar className="h-5 w-5 mt-0.5 text-primary" />
+                    <div>
+                      <div className="font-semibold">{link.title}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {link.description}
+                      </div>
+                    </div>
+                  </div>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                </a>
+              </NeonCard>
+            ))}
+          </div>
+        )}
       </main>
-
-      <TripDebug />
     </div>
   );
 }
 
 // ============================================================================
-// AFSNIT 04 – Export
+// AFSNIT 05 – Export
 // ============================================================================
 export default function Events() {
   return (
