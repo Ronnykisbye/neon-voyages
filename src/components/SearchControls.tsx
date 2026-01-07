@@ -66,19 +66,51 @@ export function toMeters(km: number) {
 }
 
 // ---------------------------------------------------------------------------
-// AFSNIT 03A – Læs land fra nv_trip (robust, ingen crash)
+// AFSNIT 03A – Læs destination/by/land fra nv_trip (robust, ingen crash)
+//  - Understøtter både:
+//    A) nv_trip.countryCode / nv_trip.countryName (top-level)
+//    B) nv_trip.location.countryCode / nv_trip.location.country (nested)
+//  - “placeName” bruges til label (Hamborg/Paris/Madrid osv.)
 // ---------------------------------------------------------------------------
-function readTripCountry(): { countryName?: string; countryCode?: string } {
+function readTripInfo(): {
+  placeName?: string;
+  countryName?: string;
+  countryCode?: string;
+} {
   try {
     const raw = window.localStorage.getItem(LS_TRIP);
     if (!raw) return {};
 
     const parsed = JSON.parse(raw) as any;
 
-    const countryName = typeof parsed?.countryName === "string" ? parsed.countryName : undefined;
-    const countryCode = typeof parsed?.countryCode === "string" ? parsed.countryCode : undefined;
+    // By/destination: prioriter location.name, ellers destination, ellers displayName (før komma)
+    const placeName =
+      typeof parsed?.location?.name === "string"
+        ? parsed.location.name
+        : typeof parsed?.destination === "string"
+          ? parsed.destination
+          : typeof parsed?.location?.displayName === "string"
+            ? String(parsed.location.displayName).split(",")[0]?.trim() || undefined
+            : undefined;
 
-    return { countryName, countryCode };
+    // Land: kan ligge både top-level og under location
+    const countryName =
+      typeof parsed?.countryName === "string"
+        ? parsed.countryName
+        : typeof parsed?.location?.country === "string"
+          ? parsed.location.country
+          : typeof parsed?.country === "string"
+            ? parsed.country
+            : undefined;
+
+    const countryCode =
+      typeof parsed?.countryCode === "string"
+        ? parsed.countryCode
+        : typeof parsed?.location?.countryCode === "string"
+          ? parsed.location.countryCode
+          : undefined;
+
+    return { placeName, countryName, countryCode };
   } catch {
     return {};
   }
@@ -119,22 +151,25 @@ export default function SearchControls({
   scopeLabel = "Område:",
 }: Props) {
   // -------------------------------------------------------------------------
-  // AFSNIT 05A – Dynamisk land (fra nv_trip)
+  // AFSNIT 05A – Dynamisk destination/by/land (fra nv_trip)
   // -------------------------------------------------------------------------
-  const { countryName, countryCode } = readTripCountry();
+  const { placeName, countryName, countryCode } = readTripInfo();
   const isDK = (countryCode || "").toLowerCase() === "dk";
 
-  // Hvis scope er "dk" men landet ikke er DK → fallback til nearby
-  const safeScope: Scope =
-    scope === "dk" && countryCode && !isDK ? "nearby" : scope;
+  // Hvis scope er "dk" men landet ikke er DK → fallback til nearby (så udlandet virker)
+  const safeScope: Scope = scope === "dk" && countryCode && !isDK ? "nearby" : scope;
 
-  // Dropdown-option for "kun land"
+  // Dropdown-option for “kun DK / kun destination”
   const countryOptionValue: Scope = isDK ? "dk" : "country";
+
+  // Brug byen som label i udlandet (Hamborg/Paris/...)
   const countryOptionLabel = isDK
     ? "Kun Danmark"
-    : countryName
-      ? `Kun ${countryName}`
-      : "Kun landet (din destination)";
+    : placeName
+      ? `Kun ${placeName}`
+      : countryName
+        ? `Kun ${countryName}`
+        : "Kun destinationens område";
 
   return (
     <div className="mt-3 grid grid-cols-1 gap-3">
@@ -181,8 +216,7 @@ export default function SearchControls({
             value={safeScope}
             onChange={(e) => {
               const raw = e.target.value as Scope;
-              const next: Scope =
-                raw === "dk" ? "dk" : raw === "country" ? "country" : "nearby";
+              const next: Scope = raw === "dk" ? "dk" : raw === "country" ? "country" : "nearby";
 
               writeScope(next);
               onScopeChange?.(next);
