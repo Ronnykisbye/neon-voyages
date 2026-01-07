@@ -4,6 +4,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plane, MapPin } from "lucide-react";
+import { differenceInDays } from "date-fns";
+
 import { DestinationInput } from "@/components/DestinationInput";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { DaysStepper } from "@/components/DaysStepper";
@@ -11,23 +13,33 @@ import { NeonButton } from "@/components/ui/NeonButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useTrip } from "@/context/TripContext";
 import { type LocationResult, reverseGeocodeAddress } from "@/services/geocoding";
-import { differenceInDays } from "date-fns";
 
 // ============================================================================
 // AFSNIT 01 – Component
 // ============================================================================
 const Index = () => {
   const navigate = useNavigate();
-  const { trip, setTrip, isValid, hasLocation } = useTrip();
+  const { trip, setTrip } = useTrip();
 
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
 
   // --------------------------------------------------------------------------
-  // AFSNIT 02 – Effects
+  // AFSNIT 02 – Robust “canContinue” (undgår rehydration timing-issues)
+  // --------------------------------------------------------------------------
+  const canContinue = Boolean(
+    trip.destination &&
+      trip.startDate &&
+      trip.endDate &&
+      trip.location?.lat &&
+      trip.location?.lon
+  );
+
+  // --------------------------------------------------------------------------
+  // AFSNIT 03 – Effects
   // --------------------------------------------------------------------------
   useEffect(() => {
-    // Når start+slutdato er sat, beregn days automatisk.
+    // Når start+slutdato er sat, beregn days automatisk
     if (trip.startDate && trip.endDate) {
       const days = differenceInDays(trip.endDate, trip.startDate) + 1;
       if (days > 0 && days !== trip.days) {
@@ -38,11 +50,10 @@ const Index = () => {
   }, [trip.startDate, trip.endDate]);
 
   // --------------------------------------------------------------------------
-  // AFSNIT 03 – Handlers
+  // AFSNIT 04 – Handlers
   // --------------------------------------------------------------------------
   const handleDestinationChange = (value: string, location?: LocationResult) => {
-    // Hvis brugeren vælger fra listen (location findes),
-    // så gem også land-info – uden gæt.
+    // Hvis valgt fra autocomplete-listen: gem lat/lon + land
     if (location) {
       setTrip({
         destination: location.name || value,
@@ -53,7 +64,7 @@ const Index = () => {
       return;
     }
 
-    // Brugeren skriver bare tekst → ingen lat/lon og ingen land.
+    // Hvis brugeren bare skriver tekst: ingen lat/lon → kan ikke fortsætte
     setTrip({
       destination: value,
       location: undefined,
@@ -75,13 +86,14 @@ const Index = () => {
   };
 
   const handleContinue = () => {
-    if (isValid && hasLocation) {
+    // Brug robust canContinue (ikke kun context derived flags)
+    if (canContinue) {
       navigate("/menu");
     }
   };
 
   // --------------------------------------------------------------------------
-  // AFSNIT 04 – GPS helper (find by + land via reverse geocoding)
+  // AFSNIT 05 – GPS helper (find by + land via reverse geocoding)
   // --------------------------------------------------------------------------
   const applyGpsTripAndGo = async (lat: number, lon: number) => {
     const now = new Date();
@@ -91,11 +103,9 @@ const Index = () => {
 
     const cityName =
       reverse?.city?.trim() ||
-      // fallback: prøv at bruge første del af displayName hvis city mangler
       (reverse?.displayName ? reverse.displayName.split(",")[0].trim() : "") ||
       "Min lokation";
 
-    // Byg et "minimalt men validt" LocationResult
     const gpsLocation: LocationResult = {
       id: "gps",
       name: cityName,
@@ -121,7 +131,6 @@ const Index = () => {
   };
 
   const friendlyGpsError = (code?: number) => {
-    // code: 1=PERMISSION_DENIED, 2=POSITION_UNAVAILABLE, 3=TIMEOUT
     if (code === 1) return "Du har afvist GPS. Tillad lokation i browseren og prøv igen.";
     if (code === 2) return "GPS kunne ikke finde din position. Prøv igen om lidt.";
     if (code === 3) return "GPS tog for lang tid. Prøv igen.";
@@ -143,8 +152,7 @@ const Index = () => {
         try {
           await applyGpsTripAndGo(pos.coords.latitude, pos.coords.longitude);
         } catch {
-          // Hvis reverse geocode fejler, så gem i det mindste lat/lon og gå videre.
-          // (ingen gæt – bare fallback)
+          // Fallback: gem lat/lon uden by/land hvis reverse fejler
           const now = new Date();
           const fallbackLocation: LocationResult = {
             id: "gps",
@@ -179,7 +187,7 @@ const Index = () => {
   };
 
   // --------------------------------------------------------------------------
-  // AFSNIT 05 – UI
+  // AFSNIT 06 – UI
   // --------------------------------------------------------------------------
   return (
     <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
@@ -208,7 +216,7 @@ const Index = () => {
             placeholder="Søg efter by eller land..."
           />
 
-          {trip.destination && !hasLocation && (
+          {trip.destination && (!trip.location?.lat || !trip.location?.lon) && (
             <p className="text-xs text-accent">
               Vælg en destination fra forslagslisten for at få præcise resultater
             </p>
@@ -259,7 +267,7 @@ const Index = () => {
             size="lg"
             className="w-full"
             onClick={handleContinue}
-            disabled={!isValid || !hasLocation}
+            disabled={!canContinue}
           >
             Fortsæt
           </NeonButton>
