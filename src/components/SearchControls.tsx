@@ -1,14 +1,13 @@
+
 // ============================================================================
 // AFSNIT 00 – Imports
 // ============================================================================
 import React from "react";
 
-
-
 // ============================================================================
 // AFSNIT 01 – Typer & konstanter
 // ============================================================================
-export type Scope = "nearby" | "dk";
+export type Scope = "nearby" | "dk" | "country";
 
 export const RADIUS_OPTIONS_KM = [2, 4, 6, 10, 20] as const;
 export type RadiusKm = (typeof RADIUS_OPTIONS_KM)[number];
@@ -23,6 +22,8 @@ const LS_RADIUS_LEGACY_SPOTS = "nv_spots_radius_km";
 
 const LS_SCOPE_NEW = "nv_search_scope";
 const LS_SCOPE_LEGACY_SPOTS = "nv_spots_scope";
+
+const LS_TRIP = "nv_trip";
 
 // ============================================================================
 // AFSNIT 03 – Hjælpefunktioner (læse/skrive settings)
@@ -46,11 +47,11 @@ export function writeRadiusKm(km: RadiusKm) {
 
 export function readScope(defaultScope: Scope = "nearby"): Scope {
   const fromNew = window.localStorage.getItem(LS_SCOPE_NEW);
-  if (fromNew === "dk" || fromNew === "nearby") return fromNew;
+  if (fromNew === "dk" || fromNew === "nearby" || fromNew === "country") return fromNew;
 
   // fallback til legacy
   const fromLegacy = window.localStorage.getItem(LS_SCOPE_LEGACY_SPOTS);
-  if (fromLegacy === "dk" || fromLegacy === "nearby") return fromLegacy;
+  if (fromLegacy === "dk" || fromLegacy === "nearby" || fromLegacy === "country") return fromLegacy;
 
   return defaultScope;
 }
@@ -63,6 +64,24 @@ export function writeScope(scope: Scope) {
 
 export function toMeters(km: number) {
   return Math.round(km * 1000);
+}
+
+// ---------------------------------------------------------------------------
+// AFSNIT 03A – Læs land fra nv_trip (uden at crashe)
+// ---------------------------------------------------------------------------
+function readTripCountry(): { countryName?: string; countryCode?: string } {
+  try {
+    const raw = window.localStorage.getItem(LS_TRIP);
+    if (!raw) return {};
+
+    const parsed = JSON.parse(raw) as any;
+    const countryName = typeof parsed?.countryName === "string" ? parsed.countryName : undefined;
+    const countryCode = typeof parsed?.countryCode === "string" ? parsed.countryCode : undefined;
+
+    return { countryName, countryCode };
+  } catch {
+    return {};
+  }
 }
 
 // ============================================================================
@@ -99,10 +118,29 @@ export default function SearchControls({
   radiusLabel = "Afstand:",
   scopeLabel = "Område:",
 }: Props) {
+  // -------------------------------------------------------------------------
+  // AFSNIT 05A – Dynamisk land-label (fra nv_trip)
+  // -------------------------------------------------------------------------
+  const { countryName, countryCode } = readTripCountry();
+
+  // Hvis vi står på "dk" men rejsen ikke er DK → fallback til nearby,
+  // så brugeren ikke bliver låst i “Danmark” ved udlandet.
+  const safeScope: Scope =
+    scope === "dk" && countryCode && countryCode.toLowerCase() !== "dk" ? "nearby" : scope;
+
+  // Bestem hvilket "country"-valg vi viser i dropdown
+  const isDK = (countryCode || "").toLowerCase() === "dk";
+  const countryOptionValue: Scope = isDK ? "dk" : "country";
+  const countryOptionLabel = isDK
+    ? "Kun Danmark"
+    : countryName
+      ? `Kun ${countryName}`
+      : "Kun landet (din destination)";
+
   return (
     <div className="mt-3 grid grid-cols-1 gap-3">
       {/* ------------------------------------------------------------
-         AFSNIT 05A – Radius
+         AFSNIT 05B – Radius
       ------------------------------------------------------------ */}
       {showRadius && (
         <div className="flex items-center justify-between gap-3">
@@ -130,7 +168,7 @@ export default function SearchControls({
       )}
 
       {/* ------------------------------------------------------------
-         AFSNIT 05B – Scope
+         AFSNIT 05C – Scope
       ------------------------------------------------------------ */}
       {showScope && (
         <div className="flex items-center justify-between gap-3">
@@ -141,15 +179,22 @@ export default function SearchControls({
           <select
             id="nv-scope"
             className="w-52 rounded-lg border bg-background px-3 py-2 text-sm"
-            value={scope}
+            value={safeScope}
             onChange={(e) => {
-              const next = e.target.value === "dk" ? "dk" : "nearby";
+              const raw = e.target.value as Scope;
+
+              // Tillad: nearby / dk / country
+              const next: Scope =
+                raw === "dk" ? "dk" : raw === "country" ? "country" : "nearby";
+
               writeScope(next);
               onScopeChange?.(next);
             }}
           >
             <option value="nearby">Nærområde (kan krydse grænser)</option>
-            <option value="dk">Kun Danmark</option>
+
+            {/* Vis enten “Kun Danmark” (DK) eller “Kun {land}” (udland) */}
+            <option value={countryOptionValue}>{countryOptionLabel}</option>
           </select>
         </div>
       )}
