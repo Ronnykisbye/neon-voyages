@@ -82,26 +82,29 @@ function HelpContent() {
     fetchData();
   }, [type, radiusKm, trip, hasLocation]);
 
-  // ======================================================
+ // ======================================================
 // AFSNIT 06 – UI (layout fix: max width + centered + returknap)
 // ======================================================
 
-/* Returknap – altid øverst */
-<div className="mb-3">
-  <button
-    onClick={() => navigate("/menu")}
-    className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium bg-muted hover:bg-muted/80"
-  >
-    <ArrowLeft className="h-4 w-4" />
-    Tilbage til menu
-  </button>
-</div>
+const navigate = useNavigate();
 
 /* Hvis der mangler lokation */
 if (!hasLocation) {
   return (
     <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
       <main className="flex-1 space-y-4 pb-6">
+
+        {/* Returknap */}
+        <div className="mb-3">
+          <button
+            onClick={() => navigate("/menu")}
+            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium bg-muted hover:bg-muted/80"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Tilbage til menu
+          </button>
+        </div>
+
         <p>Vælg en destination for at finde hjælp.</p>
       </main>
     </div>
@@ -112,6 +115,17 @@ if (!hasLocation) {
 return (
   <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
     <main className="flex-1 space-y-6 pb-6">
+
+      {/* Returknap */}
+      <div className="mb-3">
+        <button
+          onClick={() => navigate("/menu")}
+          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium bg-muted hover:bg-muted/80"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Tilbage til menu
+        </button>
+      </div>
 
       {/* VIGTIG INFO */}
       <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm">
@@ -127,12 +141,11 @@ return (
         </p>
       </div>
 
-      {/* HER KOMMER RESTEN AF DIT INDHOLD */}
-      {/* Hospitaler / Klinikker / Politi / Resultater */}
-
+      {/* Resten af hjælpesiden (tabs, search, resultater) */}
     </main>
   </div>
 );
+
 
 // ======================================================
 // AFSNIT 07 – Export
