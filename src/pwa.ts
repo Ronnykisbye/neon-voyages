@@ -17,9 +17,17 @@ export function setupPwa() {
   });
 
   if ("serviceWorker" in navigator && import.meta.env.PROD) {
+    const reloadKey = "neon-pwa-update-reload";
+    sessionStorage.removeItem(reloadKey);
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (sessionStorage.getItem(reloadKey)) return;
+      sessionStorage.setItem(reloadKey, "1");
+      window.location.reload();
+    });
+
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register(`${import.meta.env.BASE_URL}sw.js`, { updateViaCache: "none" })
+        .register(`${import.meta.env.BASE_URL}sw.js?v=${APP_VERSION}`, { updateViaCache: "none" })
         .then((registration) => registration.update())
         .catch((error) => {
           console.error("Service worker kunne ikke registreres:", error);
@@ -27,3 +35,4 @@ export function setupPwa() {
     });
   }
 }
+import { APP_VERSION } from "@/config/appVersion";
