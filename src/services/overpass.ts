@@ -1,3 +1,5 @@
+import { OSM_CUISINE_FILTERS, type FoodType } from "@/data/foodTypes";
+
 // ============================================================================
 // AFSNIT 00 – Overpass API service (fallback + caching)
 // NOTE: Vi prøver de mest stabile endpoints først for at undgå 504 timeouts.
@@ -255,12 +257,19 @@ export function buildStaySearchQuery(
   lat: number,
   lon: number,
   radiusMeters: number,
-  category: StayCategory
+  category: StayCategory,
+  foodType: FoodType = "all"
 ): string {
-  const filter =
-    category === "hotel"
-      ? `["tourism"~"^(hotel|guest_house|hostel|motel)$"]`
-      : `["amenity"~"^(restaurant|cafe|fast_food)$"]`;
+  let filter = `["tourism"~"^(hotel|guest_house|hostel|motel)$"]`;
+  if (category === "restaurant") {
+    if (foodType === "cafe") {
+      filter = `["amenity"="cafe"]`;
+    } else if (foodType !== "all") {
+      filter = `["amenity"~"^(restaurant|cafe|fast_food)$"]["cuisine"~"(^|;)(${OSM_CUISINE_FILTERS[foodType]})(;|$)",i]`;
+    } else {
+      filter = `["amenity"~"^(restaurant|cafe|fast_food)$"]`;
+    }
+  }
 
   return `
 [out:json][timeout:25];
