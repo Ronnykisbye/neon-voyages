@@ -20,6 +20,7 @@ import { HOTEL_STAR_OPTIONS, type HotelStars } from "@/data/hotelStars";
 import { APP_VERSION } from "@/config/appVersion";
 
 const RADII = [3, 5, 10] as const;
+const MINIMUM_LOADER_TIME_MS = 1400;
 
 export default function Stays() {
   const { trip } = useTrip();
@@ -88,6 +89,7 @@ export default function Stays() {
       return;
     }
 
+    const searchStartedAt = Date.now();
     setLoading(true);
     setError(null);
     setNotice(null);
@@ -130,6 +132,10 @@ export default function Stays() {
       setError(searchError instanceof Error ? searchError.message : "Søgningen fejlede. Prøv igen.");
       setResults([]);
     } finally {
+      const remainingLoaderTime = MINIMUM_LOADER_TIME_MS - (Date.now() - searchStartedAt);
+      if (remainingLoaderTime > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, remainingLoaderTime));
+      }
       setLoading(false);
     }
   };
@@ -266,7 +272,7 @@ export default function Stays() {
             {error && <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>}
 
             {loading && (
-              <PacmanLoader />
+              <PacmanLoader category={category} />
             )}
 
             {!loading && results.length > 0 && (

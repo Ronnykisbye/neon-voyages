@@ -1,6 +1,19 @@
-export function PacmanLoader() {
+import type { StayCategory } from "@/services/overpass";
+
+interface PacmanLoaderProps {
+  category: StayCategory;
+}
+
+export function PacmanLoader({ category }: PacmanLoaderProps) {
+  const isHotel = category === "hotel";
+
   return (
-    <div className="pacman-loader" role="status" aria-live="polite" aria-label="Søger efter steder">
+    <div
+      className="pacman-loader"
+      role="status"
+      aria-live="polite"
+      aria-label={isHotel ? "Søger efter hoteller" : "Søger efter restauranter"}
+    >
       <div className="pacman-loader__game" aria-hidden="true">
         <div className="pacman-loader__pacman" />
         <div className="pacman-loader__dots">
@@ -9,9 +22,12 @@ export function PacmanLoader() {
           ))}
         </div>
       </div>
-      <p className="font-semibold text-foreground">Pac-Man leder efter de bedste steder…</p>
-      <p className="text-sm text-muted-foreground">Det kan tage et øjeblik at gennemgå området.</p>
+      <p className="font-semibold text-foreground">
+        {isHotel ? "Pac-Man leder efter de bedste hoteller…" : "Pac-Man leder efter de bedste spisesteder…"}
+      </p>
+      <p className="text-sm text-muted-foreground">
+        {isHotel ? "Han gennemgår hotelklasser og afstande i området." : "Det kan tage et øjeblik at gennemgå området."}
+      </p>
     </div>
   );
 }
-

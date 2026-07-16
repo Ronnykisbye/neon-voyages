@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ChevronDown,
+  CircleDollarSign,
   ExternalLink,
   Globe,
   Loader2,
@@ -186,6 +187,17 @@ export function StayResultCard({ place: initialPlace, rank }: StayResultCardProp
             {place.website && (
               <a className="stay-action" href={place.website} target="_blank" rel="noreferrer">
                 <Globe className="h-4 w-4" /> Hjemmeside
+              </a>
+            )}
+            {place.category === "hotel" && (
+              <a
+                className="stay-action"
+                href="https://www.trivago.com/"
+                target="_blank"
+                rel="noreferrer"
+                title={`Sammenlign priser på ${place.name} hos Trivago`}
+              >
+                <CircleDollarSign className="h-4 w-4" /> Trivago
               </a>
             )}
             {place.phone && (
