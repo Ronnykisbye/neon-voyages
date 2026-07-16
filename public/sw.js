@@ -1,4 +1,4 @@
-const CACHE_NAME = "neon-voyages-v5-shell";
+const CACHE_NAME = "neon-voyages-v7-shell";
 const BASE_PATH = new URL("./", self.registration.scope).pathname;
 const APP_SHELL = [
   BASE_PATH,
