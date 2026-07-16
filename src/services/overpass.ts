@@ -1,4 +1,5 @@
 import { OSM_CUISINE_FILTERS, type FoodType } from "@/data/foodTypes";
+import type { HotelStars } from "@/data/hotelStars";
 
 // ============================================================================
 // AFSNIT 00 – Overpass API service (fallback + caching)
@@ -258,9 +259,12 @@ export function buildStaySearchQuery(
   lon: number,
   radiusMeters: number,
   category: StayCategory,
-  foodType: FoodType = "all"
+  foodType: FoodType = "all",
+  hotelStars: HotelStars = "all"
 ): string {
-  let filter = `["tourism"~"^(hotel|guest_house|hostel|motel)$"]`;
+  let filter = `["tourism"~"^(hotel|guest_house|hostel|motel)$"]${
+    hotelStars === "all" ? "" : `["stars"="${hotelStars}"]`
+  }`;
   if (category === "restaurant") {
     if (foodType === "cafe") {
       filter = `["amenity"="cafe"]`;

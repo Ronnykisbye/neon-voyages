@@ -95,6 +95,11 @@ export function StayResultCard({ place: initialPlace, rank }: StayResultCardProp
                 <h2 className="text-lg font-bold leading-tight text-foreground sm:text-xl">
                   {place.name}
                 </h2>
+                {place.category === "hotel" && place.officialStars && (
+                  <p className="mt-1 text-sm font-semibold text-amber-500" aria-label={`${place.officialStars} officielle hotelstjerner`}>
+                    {"★".repeat(place.officialStars)} <span className="text-xs text-muted-foreground">Officiel hotelklasse</span>
+                  </p>
+                )}
               </div>
               <ChevronDown
                 className={cn(

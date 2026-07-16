@@ -18,9 +18,12 @@ export function setupPwa() {
 
   if ("serviceWorker" in navigator && import.meta.env.PROD) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch((error) => {
-        console.error("Service worker kunne ikke registreres:", error);
-      });
+      navigator.serviceWorker
+        .register(`${import.meta.env.BASE_URL}sw.js`, { updateViaCache: "none" })
+        .then((registration) => registration.update())
+        .catch((error) => {
+          console.error("Service worker kunne ikke registreres:", error);
+        });
     });
   }
 }
