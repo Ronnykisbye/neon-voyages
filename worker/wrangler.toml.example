@@ -1,0 +1,16 @@
+name = "neon-voyages-api"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://ronnykisbye.github.io"
+MAX_DAILY_SEARCHES = "25"
+MAX_DAILY_DETAILS = "25"
+
+# Opret en KV namespace og indsæt id'et her.
+[[kv_namespaces]]
+binding = "GOOGLE_USAGE"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Tilføj nøglen som secret, aldrig i filen:
+# npx wrangler secret put GOOGLE_MAPS_API_KEY

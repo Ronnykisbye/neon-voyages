@@ -144,6 +144,11 @@
     background: var(--gradient-surface);
     min-height: 100vh;
   }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 @layer utilities {
@@ -181,6 +186,10 @@
     background: hsl(var(--card) / 0.7);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
+  }
+
+  .stay-action {
+    @apply inline-flex items-center gap-1.5 rounded-xl border border-border bg-background/70 px-3 py-2 text-sm font-semibold text-foreground transition hover:border-primary/50 hover:text-primary;
   }
 
   /* Animated glow pulse */

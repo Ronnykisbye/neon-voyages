@@ -3,15 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { NeonCard } from "@/components/ui/NeonCard";
 import { NeonButton } from "@/components/ui/NeonButton";
+import type { BeforeInstallPromptEvent } from "@/pwa";
 
 /* =========================================================
    AFSNIT 01 – Typer og konstanter
 ========================================================= */
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
 
 const LS_INSTALLED_FLAG = "nv_pwa_installed";
 
@@ -27,10 +23,10 @@ function detectDevice(): "ios" | "android" | "desktop" {
 }
 
 function isStandaloneMode(): boolean {
+  const iosNavigator = window.navigator as Navigator & { standalone?: boolean };
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
-    // @ts-ignore (iOS Safari legacy)
-    window.navigator.standalone === true
+    iosNavigator.standalone === true
   );
 }
 
@@ -55,9 +51,8 @@ export default function Install() {
     setInstalledFlag(localStorage.getItem(LS_INSTALLED_FLAG) === "1");
     setStandalone(isStandaloneMode());
 
-    const beforeInstallHandler = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
+    const beforeInstallHandler = () => {
+      setDeferredPrompt(window.__neonInstallPrompt || null);
     };
 
     const installedHandler = () => {
@@ -68,25 +63,24 @@ export default function Install() {
     const mql = window.matchMedia("(display-mode: standalone)");
     const displayModeHandler = () => setStandalone(isStandaloneMode());
 
-    window.addEventListener("beforeinstallprompt", beforeInstallHandler);
+    setDeferredPrompt(window.__neonInstallPrompt || null);
+    window.addEventListener("neon-install-ready", beforeInstallHandler);
     window.addEventListener("appinstalled", installedHandler);
 
     if (typeof mql.addEventListener === "function") {
       mql.addEventListener("change", displayModeHandler);
     } else {
-      // @ts-ignore
-      mql.addListener(displayModeHandler);
+      (mql as MediaQueryList & { addListener: (listener: () => void) => void }).addListener(displayModeHandler);
     }
 
     return () => {
-      window.removeEventListener("beforeinstallprompt", beforeInstallHandler);
+      window.removeEventListener("neon-install-ready", beforeInstallHandler);
       window.removeEventListener("appinstalled", installedHandler);
 
       if (typeof mql.removeEventListener === "function") {
         mql.removeEventListener("change", displayModeHandler);
       } else {
-        // @ts-ignore
-        mql.removeListener(displayModeHandler);
+        (mql as MediaQueryList & { removeListener: (listener: () => void) => void }).removeListener(displayModeHandler);
       }
     };
   }, []);
@@ -109,9 +103,6 @@ export default function Install() {
       return;
     }
 
-    if (installedFlag) {
-      navigate("/", { replace: true });
-    }
   }, [standalone, installedFlag, navigate]);
 
   /* =========================================================
@@ -129,6 +120,7 @@ export default function Install() {
     }
 
     setDeferredPrompt(null);
+    window.__neonInstallPrompt = undefined;
   };
 
   /* =========================================================

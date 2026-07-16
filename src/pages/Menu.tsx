@@ -16,6 +16,8 @@ import {
   MapPin,
   Calendar,
   Trash2,
+  BedDouble,
+  Download,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
@@ -42,6 +44,13 @@ import {
 // ============================================================================
 const menuItems = [
   {
+    icon: <BedDouble className="h-6 w-6" />,
+    label: "Hoteller & restauranter",
+    description: "Nærmeste steder, Google-score og anmeldelser",
+    to: "/stays",
+    variant: "accent" as const,
+  },
+  {
     icon: <CloudSun className="h-6 w-6" />,
     label: "Vejret",
     description: "Vejrudsigt for din rejse",
@@ -64,8 +73,8 @@ const menuItems = [
   },
   {
     icon: <Utensils className="h-6 w-6" />,
-    label: "Spisesteder",
-    description: "Mad og restauranter",
+    label: "Madguide",
+    description: "Måltider og lokale madtyper",
     to: "/food",
     variant: "primary" as const,
   },
@@ -96,6 +105,13 @@ const menuItems = [
     description: "Nødhjælp og kontakter",
     to: "/help",
     variant: "primary" as const,
+  },
+  {
+    icon: <Download className="h-6 w-6" />,
+    label: "Installer appen",
+    description: "Få Neon Voyages på mobil eller PC",
+    to: "/install",
+    variant: "secondary" as const,
   },
 ];
 
