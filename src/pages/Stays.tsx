@@ -15,6 +15,7 @@ import {
 import type { StayCategory } from "@/services/overpass";
 import { cn } from "@/lib/utils";
 import { FOOD_TYPES, type FoodType } from "@/data/foodTypes";
+import { PacmanLoader } from "@/components/PacmanLoader";
 
 const RADII = [3, 5, 10] as const;
 
@@ -23,6 +24,7 @@ export default function Stays() {
   const [category, setCategory] = useState<StayCategory>("restaurant");
   const [radiusKm, setRadiusKm] = useState<(typeof RADII)[number]>(5);
   const [foodType, setFoodType] = useState<FoodType>("all");
+  const [surpriseMessage, setSurpriseMessage] = useState<string | null>(null);
   const [location, setLocation] = useState<LocationResult | undefined>(trip.location);
   const [locationText, setLocationText] = useState(trip.destination || "");
   const [results, setResults] = useState<PlaceResult[]>([]);
@@ -33,6 +35,14 @@ export default function Stays() {
   const [notice, setNotice] = useState<string | null>(null);
   const googleReady = useMemo(() => hasGooglePlacesProxy(), []);
   const selectedFoodLabel = FOOD_TYPES.find((type) => type.id === foodType)?.label;
+
+  const surpriseMe = () => {
+    const choices = FOOD_TYPES.filter((type) => type.id !== "all");
+    const choice = choices[Math.floor(Math.random() * choices.length)];
+    setFoodType(choice.id);
+    setResults([]);
+    setSurpriseMessage(`${choice.emoji} Vi leder efter ${choice.label.toLowerCase()} mad!`);
+  };
 
   const handleDestination = (value: string, selected?: LocationResult) => {
     setLocationText(value);
@@ -157,23 +167,32 @@ export default function Stays() {
             {category === "restaurant" && (
               <section className="space-y-2">
                 <p className="text-sm font-semibold">Hvad har du lyst til?</p>
-                <div className="flex flex-wrap gap-2">
-                  {FOOD_TYPES.map((type) => (
-                    <button
-                      key={type.id}
-                      type="button"
-                      onClick={() => { setFoodType(type.id); setResults([]); }}
-                      className={cn(
-                        "rounded-full border px-3 py-2 text-xs font-semibold transition",
-                        foodType === type.id
-                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                          : "border-border bg-background/60 hover:border-primary/50"
-                      )}
-                    >
-                      <span aria-hidden="true">{type.emoji}</span> {type.label}
-                    </button>
-                  ))}
+                <div className="grid gap-2 sm:grid-cols-[1fr_auto] lg:grid-cols-1">
+                  <select
+                    value={foodType}
+                    onChange={(event) => {
+                      setFoodType(event.target.value as FoodType);
+                      setResults([]);
+                      setSurpriseMessage(null);
+                    }}
+                    className="min-h-12 w-full rounded-xl border border-border bg-background px-3 text-sm font-semibold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    aria-label="Vælg type restaurant"
+                  >
+                    {FOOD_TYPES.map((type) => (
+                      <option key={type.id} value={type.id}>
+                        {type.emoji} {type.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={surpriseMe}
+                    className="min-h-12 rounded-xl border border-accent/40 bg-accent/10 px-4 text-sm font-bold text-foreground transition hover:-translate-y-0.5 hover:bg-accent/20"
+                  >
+                    🎲 Overrask mig
+                  </button>
                 </div>
+                {surpriseMessage && <p className="rounded-xl bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">{surpriseMessage}</p>}
               </section>
             )}
 
@@ -222,9 +241,7 @@ export default function Stays() {
             {error && <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>}
 
             {loading && (
-              <div className="grid gap-4">
-                {[1, 2, 3].map((item) => <div key={item} className="h-40 animate-pulse rounded-3xl bg-muted/70" />)}
-              </div>
+              <PacmanLoader />
             )}
 
             {!loading && results.length > 0 && (

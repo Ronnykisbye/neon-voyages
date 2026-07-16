@@ -188,7 +188,7 @@
     -webkit-backdrop-filter: blur(12px);
   }
 
-  .stay-action {
+.stay-action {
     @apply inline-flex items-center gap-1.5 rounded-xl border border-border bg-background/70 px-3 py-2 text-sm font-semibold text-foreground transition hover:border-primary/50 hover:text-primary;
   }
 
@@ -220,5 +220,85 @@
       opacity: 1;
       transform: translateY(0);
     }
+  }
+}
+
+@keyframes pacman-chomp {
+  0%, 100% { clip-path: polygon(0 0, 100% 0, 100% 35%, 52% 50%, 100% 65%, 100% 100%, 0 100%); }
+  50% { clip-path: polygon(0 0, 100% 0, 100% 48%, 52% 50%, 100% 52%, 100% 100%, 0 100%); }
+}
+
+@keyframes pacman-dot-feed {
+  0% { opacity: 0; transform: translateX(42px) scale(0.7); }
+  18% { opacity: 1; }
+  82% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-110px) scale(0.25); }
+}
+
+.pacman-loader {
+  display: grid;
+  min-height: 260px;
+  place-items: center;
+  align-content: center;
+  gap: 0.45rem;
+  overflow: hidden;
+  border: 1px solid hsl(var(--primary) / 0.2);
+  border-radius: 2rem;
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--accent) / 0.1));
+  text-align: center;
+}
+
+.pacman-loader__game {
+  position: relative;
+  width: 250px;
+  height: 74px;
+}
+
+.pacman-loader__pacman {
+  position: absolute;
+  z-index: 2;
+  top: 7px;
+  left: 12px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #ffd60a;
+  filter: drop-shadow(0 0 12px rgb(255 214 10 / 55%));
+  animation: pacman-chomp 0.38s infinite ease-in-out;
+}
+
+.pacman-loader__pacman::after {
+  position: absolute;
+  top: 12px;
+  left: 31px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #111827;
+  content: "";
+}
+
+.pacman-loader__dots {
+  position: absolute;
+  top: 33px;
+  left: 102px;
+  display: flex;
+  gap: 25px;
+}
+
+.pacman-loader__dots span {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  box-shadow: 0 0 8px hsl(var(--primary) / 0.7);
+  animation: pacman-dot-feed 1.25s infinite linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pacman-loader__pacman,
+  .pacman-loader__dots span {
+    animation-duration: 2.5s;
   }
 }
