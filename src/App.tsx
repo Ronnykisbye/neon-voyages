@@ -19,6 +19,7 @@ import Markets from "./pages/Markets";
 import Transport from "./pages/Transport";
 import Help from "./pages/Help";
 import Install from "./pages/Install";
+import Stays from "./pages/Stays";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="/transport" element={<Transport />} />
               <Route path="/help" element={<Help />} />
               <Route path="/install" element={<Install />} />
+              <Route path="/stays" element={<Stays />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </HashRouter>

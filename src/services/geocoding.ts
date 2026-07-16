@@ -1,6 +1,7 @@
 // ============================================================================
-// AFSNIT 00 – OpenStreetMap Nominatim geocoding service
-// Free and open, rate-limit friendly
+// AFSNIT 00 – Open-Meteo geocoding service
+// Gratis bysøgning uden API-nøgle. Dette erstatter Nominatim-autocomplete,
+// som ikke er tilladt på Nominatims offentlige server.
 // ============================================================================
 
 export interface LocationResult {
@@ -19,22 +20,15 @@ export interface LocationResult {
   type: string;
 }
 
-interface NominatimResult {
-  place_id: number;
-  display_name: string;
-  lat: string;
-  lon: string;
-  address?: {
-    city?: string;
-    town?: string;
-    village?: string;
-    municipality?: string;
-    country?: string;
-    country_code?: string; // <-- NYT
-    state?: string;
-  };
-  type: string;
-  class: string;
+interface OpenMeteoResult {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  country?: string;
+  country_code?: string;
+  admin1?: string;
+  feature_code?: string;
 }
 
 // ============================================================================
@@ -56,49 +50,36 @@ export async function searchLocations(query: string): Promise<LocationResult[]> 
 
   try {
     const params = new URLSearchParams({
-      q: query,
+      name: query,
+      count: "5",
+      language: "da",
       format: "json",
-      addressdetails: "1",
-      limit: "5",
-      "accept-language": "da,en",
     });
 
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?${params}`,
-      {
-        headers: {
-          // NB: Det her er kun en header-identitet, ikke sikkerhed.
-          // Vi retter navnet senere hvis du ønsker det – ingen funktionel betydning.
-          "User-Agent": "UngRejseApp/1.0",
-        },
-      }
-    );
+    const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?${params}`);
 
     if (!response.ok) {
       throw new Error(`Geocoding failed: ${response.status}`);
     }
 
-    const data: NominatimResult[] = await response.json();
+    const data: { results?: OpenMeteoResult[] } = await response.json();
 
-    const results: LocationResult[] = data.map((item) => {
-      const countryCode = item.address?.country_code
-        ? String(item.address.country_code).toLowerCase()
-        : undefined;
+    const results: LocationResult[] = (data.results || []).map((item) => {
+      const countryCode = item.country_code?.toLowerCase();
+      const displayName = [item.name, item.admin1, item.country]
+        .filter(Boolean)
+        .filter((part, index, all) => all.indexOf(part) === index)
+        .join(", ");
 
       return {
-        id: String(item.place_id),
-        name:
-          item.address?.city ||
-          item.address?.town ||
-          item.address?.village ||
-          item.address?.municipality ||
-          item.display_name.split(",")[0],
-        displayName: item.display_name,
-        lat: parseFloat(item.lat),
-        lon: parseFloat(item.lon),
-        country: item.address?.country,
-        countryCode, // <-- NYT
-        type: item.type,
+        id: String(item.id),
+        name: item.name,
+        displayName,
+        lat: item.latitude,
+        lon: item.longitude,
+        country: item.country,
+        countryCode,
+        type: item.feature_code || "city",
       };
     });
 

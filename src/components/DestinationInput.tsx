@@ -40,7 +40,7 @@ export function DestinationInput({
   }, []);
 
   const handleSearch = async (searchQuery: string) => {
-    if (searchQuery.length < 2) {
+    if (searchQuery.trim().length < 3) {
       setSuggestions([]);
       setIsOpen(false);
       return;
@@ -70,7 +70,7 @@ export function DestinationInput({
     }
     debounceRef.current = setTimeout(() => {
       handleSearch(newQuery);
-    }, 300);
+    }, 500);
   };
 
   const handleSelect = (location: LocationResult) => {

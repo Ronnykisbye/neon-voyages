@@ -4,11 +4,9 @@
 // ============================================================================
 
 export const OVERPASS_ENDPOINTS = [
-  // 1) Ofte stabil
-  "https://overpass.kumi.systems/api/interpreter",
-  // 2) God fallback
-  "https://overpass.nchc.org.tw/api/interpreter",
-  // 3) Kendt men kan være travl (sættes sidst for at minimere 504 i console)
+  // Aktuel global community-instans
+  "https://overpass.private.coffee/api/interpreter",
+  // Officiel hovedinstans som fallback
   "https://overpass-api.de/api/interpreter",
 ];
 
@@ -246,6 +244,28 @@ export function buildFoodQuery(
 [out:json][timeout:25];
 (
   ${block}
+);
+out center tags;
+`;
+}
+
+export type StayCategory = "restaurant" | "hotel";
+
+export function buildStaySearchQuery(
+  lat: number,
+  lon: number,
+  radiusMeters: number,
+  category: StayCategory
+): string {
+  const filter =
+    category === "hotel"
+      ? `["tourism"~"^(hotel|guest_house|hostel|motel)$"]`
+      : `["amenity"~"^(restaurant|cafe|fast_food)$"]`;
+
+  return `
+[out:json][timeout:25];
+(
+  nwr(around:${radiusMeters},${lat},${lon})${filter};
 );
 out center tags;
 `;

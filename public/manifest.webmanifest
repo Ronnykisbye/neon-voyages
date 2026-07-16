@@ -1,13 +1,14 @@
 {
   "name": "Neon Voyages",
   "short_name": "Neon Voyages",
-  "description": "Neon Voyages – din rejseguide (installerbar web-app).",
-  "start_url": "/neon-voyages/",
-  "scope": "/neon-voyages/",
+  "id": "/neon-voyages/",
+  "description": "Find hoteller, restauranter og rejseoplevelser nær dig.",
+  "start_url": "./#/",
+  "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#FFFFFF",
-  "theme_color": "#007AFF",
+  "orientation": "any",
+  "background_color": "#101426",
+  "theme_color": "#16c7c7",
   "icons": [
     {
       "src": "/neon-voyages/icons/icon-192.png",

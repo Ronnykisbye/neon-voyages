@@ -1,73 +1,50 @@
-# Welcome to your Lovable project
+# Neon Voyages 2.0
 
-## Project info
+En responsiv rejseapp til mobil og PC. Version 2 tilføjer søgning efter hoteller og restauranter i en valgt by eller 3, 5 og 10 km fra brugerens GPS-position.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Datakilder
 
-## How can I edit this code?
+- Google Places bruges til afstand, Google-rating, antal anmeldelser og anmeldelsesuddrag.
+- OpenStreetMap/Overpass er gratis reserve, hvis Google ikke er konfigureret eller midlertidigt ikke svarer.
+- Open-Meteo Geocoding bruges til bysøgning.
+- Nominatim bruges kun til enkelte omvendte GPS-opslag og ikke til løbende autocomplete.
 
-There are several ways of editing your application.
+Google-ratingen er en brugervurdering fra 0,0 til 5,0. Den må ikke forveksles med et hotels officielle stjerneklassifikation.
 
-**Use Lovable**
+## Lokal udvikling
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Krav: Node.js 20 eller nyere.
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+npm ci
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Kontrol før udgivelse:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```sh
+npm run lint
+npm run build
+npx tsc --noEmit
+```
 
-**Use GitHub Codespaces**
+Det eksisterende projekt indeholder nogle ældre lint-fejl. De nye og ændrede version 2-filer kan kontrolleres særskilt med ESLint.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Google Places uden synlig API-nøgle
 
-## What technologies are used for this project?
+API-nøglen må ikke lægges i GitHub Pages eller i en `VITE_`-variabel. Mappen `worker/` indeholder en Cloudflare Worker-proxy, som holder nøglen hemmelig, validerer kald, cacher svar og har daglige grænser.
 
-This project is built with:
+1. Følg `worker/README.md` og opret Worker, KV-lager og secret.
+2. Sæt også en Places API-kvote i Google Cloud. Worker-grænsen alene er ikke en absolut garanti ved samtidige kald.
+3. Opret GitHub repository variable `VITE_GOOGLE_PLACES_PROXY_URL` med Worker-adressen.
+4. Kør GitHub Pages workflowet igen.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Uden Google-opsætningen virker søgningen fortsat med OpenStreetMap, men uden Google-score og Google-anmeldelser.
 
-## How can I deploy this project?
+## Installation på mobil og PC
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+Appen er en PWA med manifest og service worker. Brug punktet **Installer app** i menuen. Chrome og Edge kan vise en rigtig installationsknap; iOS viser en kort vejledning til **Føj til hjemmeskærm**.
 
-## Can I connect a custom domain to my Lovable project?
+## Udgivelse
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Workflowet `.github/workflows/pages.yml` bygger og udgiver appen til GitHub Pages ved push til `main`.
