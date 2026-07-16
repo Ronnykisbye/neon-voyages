@@ -6,6 +6,7 @@ import {
   type StayCategory,
 } from "@/services/overpass";
 import type { FoodType } from "@/data/foodTypes";
+import type { HotelStars } from "@/data/hotelStars";
 
 export type PlaceSource = "google" | "openstreetmap";
 
@@ -33,6 +34,7 @@ export interface PlaceResult {
   openingHours?: string[];
   cuisine?: string;
   foodDescription?: string;
+  officialStars?: number;
   reviews?: ReviewItem[];
   source: PlaceSource;
 }
@@ -179,9 +181,10 @@ export async function searchOpenStreetMapPlaces(
   lon: number,
   radiusMeters: number,
   category: StayCategory,
-  foodType: FoodType = "all"
+  foodType: FoodType = "all",
+  hotelStars: HotelStars = "all"
 ): Promise<PlaceResult[]> {
-  const query = buildStaySearchQuery(lat, lon, radiusMeters, category, foodType);
+  const query = buildStaySearchQuery(lat, lon, radiusMeters, category, foodType, hotelStars);
   const result = await queryOverpass(query);
   if (!result.data) throw new Error(result.error || "OpenStreetMap kunne ikke hentes");
 
@@ -220,6 +223,7 @@ export async function searchOpenStreetMapPlaces(
         openingHours: tags.opening_hours ? [tags.opening_hours] : undefined,
         cuisine,
         foodDescription,
+        officialStars: /^([1-5])$/.test(tags.stars || "") ? Number(tags.stars) : undefined,
         googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lon}`,
         source: "openstreetmap",
       };

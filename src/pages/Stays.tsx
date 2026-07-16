@@ -16,6 +16,7 @@ import type { StayCategory } from "@/services/overpass";
 import { cn } from "@/lib/utils";
 import { FOOD_TYPES, type FoodType } from "@/data/foodTypes";
 import { PacmanLoader } from "@/components/PacmanLoader";
+import { HOTEL_STAR_OPTIONS, type HotelStars } from "@/data/hotelStars";
 
 const RADII = [3, 5, 10] as const;
 
@@ -24,6 +25,7 @@ export default function Stays() {
   const [category, setCategory] = useState<StayCategory>("restaurant");
   const [radiusKm, setRadiusKm] = useState<(typeof RADII)[number]>(5);
   const [foodType, setFoodType] = useState<FoodType>("all");
+  const [hotelStars, setHotelStars] = useState<HotelStars>("all");
   const [surpriseMessage, setSurpriseMessage] = useState<string | null>(null);
   const [location, setLocation] = useState<LocationResult | undefined>(trip.location);
   const [locationText, setLocationText] = useState(trip.destination || "");
@@ -90,7 +92,7 @@ export default function Stays() {
     setNotice(null);
     setVisibleCount(10);
     try {
-      if (googleReady) {
+      if (googleReady && !(category === "hotel" && hotelStars !== "all")) {
         try {
           const googleResults = await searchGooglePlaces(
             location.lat,
@@ -107,7 +109,11 @@ export default function Stays() {
           setNotice("Google kunne ikke svare. Du ser derfor den gratis OpenStreetMap-reserve.");
         }
       } else {
-        setNotice("Google-delen afprøves først, når den beskyttede API-nøgle er tilsluttet. Du ser OpenStreetMap-resultater nu.");
+        setNotice(
+          category === "hotel" && hotelStars !== "all"
+            ? "Hotelklasse er ikke det samme som Google-score. Du ser kun hoteller, hvor den officielle klasse er registreret i OpenStreetMap."
+            : "Google-delen afprøves først, når den beskyttede API-nøgle er tilsluttet. Du ser OpenStreetMap-resultater nu."
+        );
       }
 
       const osmResults = await searchOpenStreetMapPlaces(
@@ -115,7 +121,8 @@ export default function Stays() {
         location.lon,
         radiusKm * 1000,
         category,
-        foodType
+        foodType,
+        hotelStars
       );
       setResults(osmResults);
     } catch (searchError) {
@@ -193,6 +200,23 @@ export default function Stays() {
                   </button>
                 </div>
                 {surpriseMessage && <p className="rounded-xl bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">{surpriseMessage}</p>}
+              </section>
+            )}
+
+            {category === "hotel" && (
+              <section className="space-y-2">
+                <label htmlFor="hotel-stars" className="text-sm font-semibold">Hotelklasse</label>
+                <select
+                  id="hotel-stars"
+                  value={hotelStars}
+                  onChange={(event) => { setHotelStars(event.target.value as HotelStars); setResults([]); }}
+                  className="min-h-12 w-full rounded-xl border border-border bg-background px-3 text-sm font-semibold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                >
+                  {HOTEL_STAR_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <p className="text-xs leading-relaxed text-muted-foreground">Hotelstjerner beskriver hotellets officielle klasse – ikke gæsternes Google-score.</p>
               </section>
             )}
 
