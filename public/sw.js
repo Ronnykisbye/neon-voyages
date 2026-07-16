@@ -1,4 +1,4 @@
-const CACHE_NAME = "neon-voyages-v7-shell";
+const CACHE_NAME = "neon-voyages-v8-shell";
 const BASE_PATH = new URL("./", self.registration.scope).pathname;
 const APP_SHELL = [
   BASE_PATH,
@@ -18,6 +18,14 @@ self.addEventListener("activate", (event) => {
       .keys()
       .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
       .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: "window" }))
+      .then((clients) =>
+        Promise.all(
+          clients.map((client) =>
+            "navigate" in client ? client.navigate(client.url) : Promise.resolve()
+          )
+        )
+      )
   );
 });
 
