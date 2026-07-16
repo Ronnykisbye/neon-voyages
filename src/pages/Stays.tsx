@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { FOOD_TYPES, type FoodType } from "@/data/foodTypes";
 import { PacmanLoader } from "@/components/PacmanLoader";
 import { HOTEL_STAR_OPTIONS, type HotelStars } from "@/data/hotelStars";
+import { APP_VERSION } from "@/config/appVersion";
 
 const RADII = [3, 5, 10] as const;
 
@@ -252,7 +253,7 @@ export default function Stays() {
 
           <section className="min-w-0 space-y-4">
             <div className="rounded-[2rem] bg-gradient-to-br from-primary/15 via-secondary/25 to-accent/10 p-5 sm:p-7">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Neon Voyages 2.0</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Neon Voyages {APP_VERSION}</p>
               <h1 className="mt-2 text-2xl font-bold sm:text-4xl">
                 {category === "hotel" ? "Find et hotel, du kan stole på" : "Find det rigtige sted at spise"}
               </h1>

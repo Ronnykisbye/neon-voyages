@@ -11,6 +11,8 @@ export const OVERPASS_ENDPOINTS = [
   "https://overpass.private.coffee/api/interpreter",
   // Officiel hovedinstans som fallback
   "https://overpass-api.de/api/interpreter",
+  // Tredje global instans fra OpenStreetMaps offentlige instansliste
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
 ];
 
 const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -73,7 +75,7 @@ export function setCache(key: string, data: OverpassElement[]): void {
 async function fetchWithTimeout(
   url: string,
   body: string,
-  timeoutMs: number = 30000
+  timeoutMs: number = 22000
 ): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -122,7 +124,10 @@ export async function queryOverpass(
     }
   }
 
-  return { data: null, error: "Overpass er travl lige nu – prøv igen om lidt" };
+  return {
+    data: null,
+    error: "De gratis stedservere svarer ikke lige nu. Appen har prøvet tre servere – tryk Søg igen om et øjeblik.",
+  };
 }
 
 // ============================================================================
