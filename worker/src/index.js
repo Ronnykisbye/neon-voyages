@@ -1,6 +1,16 @@
 const GOOGLE_API = "https://places.googleapis.com/v1";
 const VALID_RADII = new Set([3000, 5000, 10000]);
 const VALID_CATEGORIES = new Set(["restaurant", "hotel"]);
+const GOOGLE_FOOD_TYPES = {
+  italian: "italian_restaurant",
+  pizza: "pizza_restaurant",
+  asian: "asian_restaurant",
+  thai: "thai_restaurant",
+  indian: "indian_restaurant",
+  seafood: "seafood_restaurant",
+  vegetarian: "vegetarian_restaurant",
+  cafe: "cafe",
+};
 
 function corsHeaders(request, env) {
   const origin = request.headers.get("Origin") || "";
@@ -75,10 +85,12 @@ function validateSearch(body) {
   const lon = Number(body.lon);
   const radiusMeters = Number(body.radiusMeters);
   const category = body.category;
+  const foodType = typeof body.foodType === "string" ? body.foodType : "all";
   if (!Number.isFinite(lat) || lat < -90 || lat > 90) return null;
   if (!Number.isFinite(lon) || lon < -180 || lon > 180) return null;
   if (!VALID_RADII.has(radiusMeters) || !VALID_CATEGORIES.has(category)) return null;
-  return { lat, lon, radiusMeters, category };
+  if (foodType !== "all" && foodType !== "local" && !GOOGLE_FOOD_TYPES[foodType]) return null;
+  return { lat, lon, radiusMeters, category, foodType };
 }
 
 async function handleSearch(request, env, ctx, body) {
@@ -99,7 +111,11 @@ async function handleSearch(request, env, ctx, body) {
     {
       method: "POST",
       body: JSON.stringify({
-        includedTypes: [input.category === "hotel" ? "lodging" : "restaurant"],
+        includedTypes: [
+          input.category === "hotel"
+            ? "lodging"
+            : GOOGLE_FOOD_TYPES[input.foodType] || "restaurant",
+        ],
         maxResultCount: 20,
         rankPreference: "DISTANCE",
         locationRestriction: {
@@ -110,7 +126,7 @@ async function handleSearch(request, env, ctx, body) {
         },
       }),
     },
-    "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.priceLevel,places.googleMapsUri"
+    "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.priceLevel,places.googleMapsUri,places.types,places.primaryTypeDisplayName"
   );
 
   const text = await response.text();

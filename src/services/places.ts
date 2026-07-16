@@ -5,6 +5,7 @@ import {
   type OverpassElement,
   type StayCategory,
 } from "@/services/overpass";
+import type { FoodType } from "@/data/foodTypes";
 
 export type PlaceSource = "google" | "openstreetmap";
 
@@ -30,6 +31,8 @@ export interface PlaceResult {
   website?: string;
   phone?: string;
   openingHours?: string[];
+  cuisine?: string;
+  foodDescription?: string;
   reviews?: ReviewItem[];
   source: PlaceSource;
 }
@@ -44,6 +47,8 @@ interface SearchResponse {
     userRatingCount?: number;
     priceLevel?: string;
     googleMapsUri?: string;
+    types?: string[];
+    primaryTypeDisplayName?: { text?: string };
   }>;
 }
 
@@ -109,7 +114,8 @@ export async function searchGooglePlaces(
   lat: number,
   lon: number,
   radiusMeters: number,
-  category: StayCategory
+  category: StayCategory,
+  foodType: FoodType = "all"
 ): Promise<PlaceResult[]> {
   if (!proxyUrl) throw new Error("Google Places er endnu ikke konfigureret");
 
@@ -118,6 +124,7 @@ export async function searchGooglePlaces(
     lon,
     radiusMeters,
     category,
+    foodType,
   });
 
   return (data.places || [])
@@ -141,6 +148,13 @@ export async function searchGooglePlaces(
           place.googleMapsUri ||
           `https://www.google.com/maps/search/?api=1&query=${placeLat},${placeLon}`,
         source: "google",
+        cuisine: place.primaryTypeDisplayName?.text,
+        foodDescription:
+          category === "restaurant"
+            ? place.primaryTypeDisplayName?.text
+              ? `${place.primaryTypeDisplayName.text}. Se anmeldelser og menukort for de konkrete retter.`
+              : "Google har ikke oplyst en mere præcis køkkentype for stedet."
+            : undefined,
       };
     })
     .filter((place): place is PlaceResult => Boolean(place))
@@ -164,9 +178,10 @@ export async function searchOpenStreetMapPlaces(
   lat: number,
   lon: number,
   radiusMeters: number,
-  category: StayCategory
+  category: StayCategory,
+  foodType: FoodType = "all"
 ): Promise<PlaceResult[]> {
-  const query = buildStaySearchQuery(lat, lon, radiusMeters, category);
+  const query = buildStaySearchQuery(lat, lon, radiusMeters, category, foodType);
   const result = await queryOverpass(query);
   if (!result.data) throw new Error(result.error || "OpenStreetMap kunne ikke hentes");
 
@@ -176,6 +191,22 @@ export async function searchOpenStreetMapPlaces(
       if (!coords) return null;
       const tags = element.tags || {};
       const name = osmName(element);
+      const cuisine = tags.cuisine
+        ?.split(";")
+        .map((item) => item.trim().replaceAll("_", " "))
+        .filter(Boolean)
+        .join(", ");
+      const foodDescription =
+        category === "restaurant"
+          ? tags.description ||
+            (cuisine
+              ? `Køkken: ${cuisine}. Oplysningen kommer fra restaurantens registrerede steddata.`
+              : tags.amenity === "cafe"
+                ? "Café med drikkevarer og typisk lette serveringer. Det konkrete udvalg er ikke oplyst."
+                : tags.amenity === "fast_food"
+                  ? "Hurtig servering eller takeaway. Den konkrete køkkentype er ikke oplyst."
+                  : "Køkkentypen er ikke oplyst i OpenStreetMap. Se restaurantens hjemmeside eller menukort.")
+          : undefined;
       return {
         id: `osm-${element.type}-${element.id}`,
         name,
@@ -187,12 +218,15 @@ export async function searchOpenStreetMapPlaces(
         website: tags.website || tags["contact:website"],
         phone: tags.phone || tags["contact:phone"],
         openingHours: tags.opening_hours ? [tags.opening_hours] : undefined,
+        cuisine,
+        foodDescription,
         googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lon}`,
         source: "openstreetmap",
       };
     })
     .filter((place): place is PlaceResult => Boolean(place))
-    .sort((a, b) => a.distanceMeters - b.distanceMeters);
+    .sort((a, b) => a.distanceMeters - b.distanceMeters)
+    .slice(0, 100);
 }
 
 export async function getGooglePlaceDetails(placeId: string): Promise<Partial<PlaceResult>> {

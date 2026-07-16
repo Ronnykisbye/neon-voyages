@@ -14,6 +14,7 @@ import {
 } from "@/services/places";
 import type { StayCategory } from "@/services/overpass";
 import { cn } from "@/lib/utils";
+import { FOOD_TYPES, type FoodType } from "@/data/foodTypes";
 
 const RADII = [3, 5, 10] as const;
 
@@ -21,6 +22,7 @@ export default function Stays() {
   const { trip } = useTrip();
   const [category, setCategory] = useState<StayCategory>("restaurant");
   const [radiusKm, setRadiusKm] = useState<(typeof RADII)[number]>(5);
+  const [foodType, setFoodType] = useState<FoodType>("all");
   const [location, setLocation] = useState<LocationResult | undefined>(trip.location);
   const [locationText, setLocationText] = useState(trip.destination || "");
   const [results, setResults] = useState<PlaceResult[]>([]);
@@ -30,6 +32,7 @@ export default function Stays() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const googleReady = useMemo(() => hasGooglePlacesProxy(), []);
+  const selectedFoodLabel = FOOD_TYPES.find((type) => type.id === foodType)?.label;
 
   const handleDestination = (value: string, selected?: LocationResult) => {
     setLocationText(value);
@@ -83,7 +86,8 @@ export default function Stays() {
             location.lat,
             location.lon,
             radiusKm * 1000,
-            category
+            category,
+            foodType
           );
           setResults(googleResults);
           if (googleResults.length === 0) setNotice("Google fandt ingen steder med de valgte filtre.");
@@ -100,7 +104,8 @@ export default function Stays() {
         location.lat,
         location.lon,
         radiusKm * 1000,
-        category
+        category,
+        foodType
       );
       setResults(osmResults);
     } catch (searchError) {
@@ -148,6 +153,29 @@ export default function Stays() {
                 {gpsLoading ? "Finder din lokation…" : "Brug min lokation"}
               </button>
             </section>
+
+            {category === "restaurant" && (
+              <section className="space-y-2">
+                <p className="text-sm font-semibold">Hvad har du lyst til?</p>
+                <div className="flex flex-wrap gap-2">
+                  {FOOD_TYPES.map((type) => (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => { setFoodType(type.id); setResults([]); }}
+                      className={cn(
+                        "rounded-full border px-3 py-2 text-xs font-semibold transition",
+                        foodType === type.id
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                          : "border-border bg-background/60 hover:border-primary/50"
+                      )}
+                    >
+                      <span aria-hidden="true">{type.emoji}</span> {type.label}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
 
             <section className="space-y-2">
               <p className="text-sm font-semibold">Afstand</p>
@@ -202,7 +230,10 @@ export default function Stays() {
             {!loading && results.length > 0 && (
               <>
                 <div className="flex items-center justify-between px-1">
-                  <p className="font-semibold">{results.length} steder fundet</p>
+                  <p className="font-semibold">
+                    {results.length === 100 ? "Viser de 100 nærmeste steder" : `${results.length} steder fundet`}
+                    {category === "restaurant" && foodType !== "all" ? ` · ${selectedFoodLabel}` : ""}
+                  </p>
                   <p className="text-xs text-muted-foreground">Sorteret efter afstand</p>
                 </div>
                 <div className="grid gap-4">

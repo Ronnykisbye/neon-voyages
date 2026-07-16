@@ -117,6 +117,12 @@ export function StayResultCard({ place: initialPlace, rank }: StayResultCardProp
               <p className="mt-3 text-sm text-muted-foreground">Ingen offentlig score i den gratis reservekilde</p>
             )}
 
+            {place.category === "restaurant" && place.foodDescription && (
+              <p className="mt-3 rounded-xl bg-primary/5 px-3 py-2 text-sm leading-relaxed text-foreground/80">
+                {place.foodDescription}
+              </p>
+            )}
+
             {place.address && (
               <div className="mt-3 flex items-start gap-2 text-sm text-muted-foreground">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
