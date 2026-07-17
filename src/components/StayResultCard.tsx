@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ChevronDown,
+  Bookmark,
   CircleDollarSign,
   ExternalLink,
   Globe,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { getGooglePlaceDetails, type PlaceResult } from "@/services/places";
 import { cn } from "@/lib/utils";
+import { useSavedPlaces } from "@/hooks/useSavedPlaces";
 
 interface StayResultCardProps {
   place: PlaceResult;
@@ -53,6 +55,8 @@ export function StayResultCard({ place: initialPlace, rank }: StayResultCardProp
   const [loading, setLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [shareLabel, setShareLabel] = useState("Del sted");
+  const { isSaved, toggleSaved } = useSavedPlaces();
+  const saved = isSaved(place.id);
 
   const handleShare = async () => {
     const shareData = {
@@ -204,6 +208,9 @@ export function StayResultCard({ place: initialPlace, rank }: StayResultCardProp
           )}
 
           <div className="mt-5 flex flex-wrap gap-2">
+            <button type="button" className="stay-action" onClick={() => toggleSaved(place)} aria-pressed={saved}>
+              <Bookmark className={cn("h-4 w-4", saved && "fill-current")} /> {saved ? "Gemt" : "Gem sted"}
+            </button>
             <button type="button" className="stay-action" onClick={handleShare}>
               <Share2 className="h-4 w-4" /> {shareLabel}
             </button>

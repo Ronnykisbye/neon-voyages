@@ -21,6 +21,7 @@ import Transport from "./pages/Transport";
 import Help from "./pages/Help";
 import Install from "./pages/Install";
 import Stays from "./pages/Stays";
+import SavedPlaces from "./pages/SavedPlaces";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -50,6 +51,7 @@ const App = () => (
               <Route path="/help" element={<Help />} />
               <Route path="/install" element={<Install />} />
               <Route path="/stays" element={<Stays />} />
+              <Route path="/saved-places" element={<SavedPlaces />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </HashRouter>
