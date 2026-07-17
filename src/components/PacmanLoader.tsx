@@ -1,18 +1,28 @@
 import type { StayCategory } from "@/services/overpass";
 
 interface PacmanLoaderProps {
-  category: StayCategory;
+  category?: StayCategory;
+  title?: string;
+  detail?: string;
 }
 
-export function PacmanLoader({ category }: PacmanLoaderProps) {
+export function PacmanLoader({ category, title, detail }: PacmanLoaderProps) {
   const isHotel = category === "hotel";
+  const defaultTitle = isHotel
+    ? "Pac-Man leder efter de bedste hoteller…"
+    : category === "restaurant"
+      ? "Pac-Man leder efter de bedste spisesteder…"
+      : "Pac-Man leder efter de bedste steder…";
+  const defaultDetail = isHotel
+    ? "Han gennemgår hotelklasser og afstande i området."
+    : "Det kan tage et øjeblik at gennemgå området.";
 
   return (
     <div
       className="pacman-loader"
       role="status"
       aria-live="polite"
-      aria-label={isHotel ? "Søger efter hoteller" : "Søger efter restauranter"}
+      aria-label={title || (isHotel ? "Søger efter hoteller" : "Søger efter steder")}
     >
       <div className="pacman-loader__game" aria-hidden="true">
         <div className="pacman-loader__pacman" />
@@ -22,12 +32,8 @@ export function PacmanLoader({ category }: PacmanLoaderProps) {
           ))}
         </div>
       </div>
-      <p className="font-semibold text-foreground">
-        {isHotel ? "Pac-Man leder efter de bedste hoteller…" : "Pac-Man leder efter de bedste spisesteder…"}
-      </p>
-      <p className="text-sm text-muted-foreground">
-        {isHotel ? "Han gennemgår hotelklasser og afstande i området." : "Det kan tage et øjeblik at gennemgå området."}
-      </p>
+      <p className="font-semibold text-foreground">{title || defaultTitle}</p>
+      <p className="text-sm text-muted-foreground">{detail || defaultDetail}</p>
     </div>
   );
 }

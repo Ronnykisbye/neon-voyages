@@ -1,16 +1,25 @@
+import { PacmanLoader } from "@/components/PacmanLoader";
+
 type Props = {
   status: "idle" | "loading" | "empty" | "done";
   onRetry: () => void;
 };
 
 export default function SearchStatusBar({ status, onRetry }: Props) {
-  let text = "";
-
   if (status === "loading") {
-    text = "🔄 Søger i OpenStreetMap…";
-  } else if (status === "empty") {
-    text =
-      "❌ Ingen data fundet i dette område. OpenStreetMap kan mangle detaljer her.";
+    return (
+      <div className="mb-4">
+        <PacmanLoader
+          title="Pac-Man leder efter steder i nærheden…"
+          detail="Han søger i OpenStreetMap og gennemgår området."
+        />
+      </div>
+    );
+  }
+
+  let text = "";
+  if (status === "empty") {
+    text = "❌ Ingen data fundet i dette område. OpenStreetMap kan mangle detaljer her.";
   } else if (status === "done") {
     text = "✅ Resultater fundet";
   }

@@ -185,7 +185,12 @@ function HelpContent() {
         />
 
         {/* Resultater */}
-        {loading && <p>Finder hjælp i nærheden…</p>}
+        {loading && (
+          <PacmanLoader
+            title="Pac-Man finder hjælp i nærheden…"
+            detail="Han gennemgår hospitaler, apoteker, læger og politi i området."
+          />
+        )}
 
         {!loading && items.length === 0 && (
           <p>Ingen steder fundet. Prøv at øge afstanden.</p>
