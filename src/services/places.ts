@@ -176,6 +176,16 @@ function osmAddress(tags: Record<string, string>): string | undefined {
   return [first, city].filter(Boolean).join(", ") || undefined;
 }
 
+function googleMapsSearchUrl(
+  name: string,
+  address: string | undefined,
+  lat: number,
+  lon: number
+): string {
+  const query = [name, address, `${lat},${lon}`].filter(Boolean).join(" ");
+  return `https://www.google.com/maps/search/?${new URLSearchParams({ api: "1", query })}`;
+}
+
 export async function searchOpenStreetMapPlaces(
   lat: number,
   lon: number,
@@ -224,7 +234,7 @@ export async function searchOpenStreetMapPlaces(
         cuisine,
         foodDescription,
         officialStars: /^([1-5])$/.test(tags.stars || "") ? Number(tags.stars) : undefined,
-        googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lon}`,
+        googleMapsUrl: googleMapsSearchUrl(name, osmAddress(tags), coords.lat, coords.lon),
         source: "openstreetmap",
       };
     })

@@ -182,7 +182,7 @@ export function StayResultCard({ place: initialPlace, rank }: StayResultCardProp
 
           <div className="mt-5 flex flex-wrap gap-2">
             <a className="stay-action" href={place.googleMapsUrl} target="_blank" rel="noreferrer">
-              <Navigation className="h-4 w-4" /> Google Maps
+              <Navigation className="h-4 w-4" /> Se score og anmeldelser på Google
             </a>
             {place.website && (
               <a className="stay-action" href={place.website} target="_blank" rel="noreferrer">
