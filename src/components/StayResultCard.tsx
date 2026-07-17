@@ -197,7 +197,7 @@ export function StayResultCard({ place: initialPlace, rank }: StayResultCardProp
                 rel="noreferrer"
                 title={`Sammenlign priser på ${place.name} hos Trivago`}
               >
-                <CircleDollarSign className="h-4 w-4" /> Trivago
+                <CircleDollarSign className="h-4 w-4" /> Find på Trivago
               </a>
             )}
             {place.phone && (
