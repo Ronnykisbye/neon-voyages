@@ -1,25 +1,22 @@
-// ======================================================
-// AFSNIT 01 – Imports
-// ======================================================
 import { useEffect, useState } from "react";
-import { AlertTriangle, ArrowLeft, MapPin, Phone } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-
-import { useTrip } from "@/context/TripContext";
-import { queryOverpass } from "@/services/overpass";
-
-import SearchControls from "@/components/SearchControls";
+import { AlertTriangle, MapPin, Phone, RefreshCw } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
+import { PacmanLoader } from "@/components/PacmanLoader";
 import { PlaceCard } from "@/components/PlaceCard";
+import SearchControls, { type RadiusKm } from "@/components/SearchControls";
 import { TripGuard } from "@/components/TripGuard";
+import { useTrip } from "@/context/TripContext";
+import {
+  getCoordinates,
+  queryOverpass,
+  type OverpassElement,
+} from "@/services/overpass";
 
-// ======================================================
-// AFSNIT 02 – Typer & konstanter
-// ======================================================
 type HelpType = "hospital" | "clinic" | "police";
 
 const HELP_TYPES: { key: HelpType; label: string }[] = [
   { key: "hospital", label: "Hospitaler" },
-  { key: "clinic", label: "Klinikker" },
+  { key: "clinic", label: "Læger & klinikker" },
   { key: "police", label: "Politi" },
 ];
 
@@ -29,215 +26,203 @@ const OSM_FILTERS: Record<HelpType, string[]> = {
   police: ['["amenity"="police"]'],
 };
 
-// ======================================================
-// AFSNIT 03 – Hjælpefunktioner
-// ======================================================
-function extractPhone(tags: any): string | null {
-  if (!tags) return null;
-  const raw =
-    tags["contact:phone"] ||
-    tags.phone ||
-    tags["phone:mobile"] ||
-    null;
-
-  if (!raw) return null;
-
-  return raw.replace(/[^0-9+]/g, "");
+function extractPhone(tags?: Record<string, string>): string | null {
+  const raw = tags?.["contact:phone"] || tags?.phone || tags?.["phone:mobile"];
+  return raw ? raw.replace(/[^0-9+]/g, "") : null;
 }
 
-// ======================================================
-// AFSNIT 04 – Component
-// ======================================================
 function HelpContent() {
-  const navigate = useNavigate();
   const { trip } = useTrip();
-
   const [type, setType] = useState<HelpType>("hospital");
-  const [radiusKm, setRadiusKm] = useState(6);
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [radiusKm, setRadiusKm] = useState<RadiusKm>(6);
+  const [items, setItems] = useState<OverpassElement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const hasLocation = Boolean(trip?.location?.lat && trip?.location?.lon);
+  const lat = trip.location?.lat;
+  const lon = trip.location?.lon;
+  const hasLocation = typeof lat === "number" && typeof lon === "number";
 
-  // ====================================================
-  // AFSNIT 05 – Datahentning (Overpass)
-  // ====================================================
   useEffect(() => {
-    if (!hasLocation) return;
+    if (!hasLocation) {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
 
     const fetchData = async () => {
       setLoading(true);
+      setError(null);
+
+      const clauses = OSM_FILTERS[type]
+        .map((filter) => `nwr(around:${radiusKm * 1000},${lat},${lon})${filter};`)
+        .join("\n");
+
+      const query = `
+        [out:json][timeout:25];
+        (
+          ${clauses}
+        );
+        out center tags;
+      `;
 
       try {
-        const { lat, lon } = trip.location;
-        const filters = OSM_FILTERS[type].join("");
-
-        const query = `
-          [out:json][timeout:25];
-          (
-            nwr(around:${radiusKm * 1000},${lat},${lon})${filters};
-          );
-          out center tags;
-        `;
-
-        const res = await queryOverpass(query);
-        setItems(res?.data || []);
+        const result = await queryOverpass(query);
+        if (cancelled) return;
+        if (result.error) {
+          setError(result.error);
+          setItems([]);
+        } else {
+          setItems((result.data || []).filter((item) => item.tags?.name).slice(0, 30));
+        }
       } catch {
-        setItems([]);
+        if (!cancelled) {
+          setError("Hjælpesøgningen kunne ikke gennemføres. Prøv igen.");
+          setItems([]);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchData();
-  }, [type, radiusKm, hasLocation, trip]);
+    return () => {
+      cancelled = true;
+    };
+  }, [hasLocation, lat, lon, radiusKm, type, reloadKey]);
 
-  // ====================================================
-  // AFSNIT 06 – UI
-  // ====================================================
-
-  // Mangler lokation
-  if (!hasLocation) {
-    return (
-      <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
-        <main className="flex-1 space-y-4 pb-6">
-
-          {/* Returknap */}
-          <div className="mb-3">
-            <button
-              onClick={() => navigate("/menu")}
-              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium bg-muted hover:bg-muted/80"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Tilbage til menu
-            </button>
-          </div>
-
-          <p>Vælg en destination for at finde hjælp.</p>
-        </main>
-      </div>
-    );
-  }
-
-  // Normal visning
   return (
-    <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
-      <main className="flex-1 space-y-6 pb-6">
+    <div className="min-h-screen px-4 pb-12 sm:px-6">
+      <div className="mx-auto max-w-3xl">
+        <PageHeader title="Hjælp i nærheden" subtitle={trip.destination} />
 
-        {/* Returknap */}
-        <div className="mb-3">
-          <button
-            onClick={() => navigate("/menu")}
-            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium bg-muted hover:bg-muted/80"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Tilbage til menu
-          </button>
-        </div>
-
-        {/* Advarsel */}
-        <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm">
+        <div className="mb-4 rounded-2xl border border-red-400/40 bg-red-500/10 p-4 text-sm">
           <div className="flex gap-2">
-            <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5" />
-            <span>
-              Brug altid officielle kilder i nødsituationer. Appen viser kun
-              verificerede steder – ikke nødnumre.
-            </span>
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+            <p>
+              Ring det lokale alarmnummer ved akut fare. Neon Voyages viser steder
+              fra OpenStreetMap og erstatter ikke officielle nødtjenester.
+            </p>
           </div>
         </div>
 
-        {/* SOS International */}
-        <div className="rounded-xl border bg-blue-50 p-4">
-          <h3 className="font-semibold">SOS International</h3>
-          <p className="text-sm text-muted-foreground">
-            Dansk rejseservice – kontakt denne ved alvorlige problemer i udlandet.
+        <div className="mb-5 rounded-2xl border border-primary/30 bg-primary/10 p-4">
+          <h2 className="font-semibold">SOS International</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Dansk rejseservice ved alvorlige problemer i udlandet.
           </p>
           <a
             href="https://www.sos.eu/da"
             target="_blank"
             rel="noreferrer"
-            className="inline-block mt-2 text-sm underline"
+            className="mt-2 inline-block text-sm font-semibold text-primary underline"
           >
-            Gå til SOS International
+            Åbn SOS International
           </a>
         </div>
 
-        {/* Typevalg */}
-        <div className="flex gap-2 flex-wrap">
-          {HELP_TYPES.map((t) => (
+        <div className="mb-4 grid grid-cols-3 gap-2">
+          {HELP_TYPES.map((option) => (
             <button
-              key={t.key}
-              onClick={() => setType(t.key)}
-              className={`px-3 py-2 rounded-lg text-sm ${
-                type === t.key ? "bg-primary text-white" : "bg-muted"
+              key={option.key}
+              type="button"
+              onClick={() => setType(option.key)}
+              className={`min-h-11 rounded-xl px-2 text-sm font-semibold transition ${
+                type === option.key
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border bg-card text-muted-foreground"
               }`}
             >
-              {t.label}
+              {option.label}
             </button>
           ))}
         </div>
 
-        {/* Afstand */}
-        <SearchControls
-          radiusKm={radiusKm}
-          onRadiusChange={setRadiusKm}
-          showScope={false}
-        />
+        <div className="mb-5 rounded-2xl border border-border bg-card/80 p-4">
+          <SearchControls
+            radiusKm={radiusKm}
+            onRadiusChange={setRadiusKm}
+            showScope={false}
+          />
+        </div>
 
-        {/* Resultater */}
         {loading && (
           <PacmanLoader
             title="Pac-Man finder hjælp i nærheden…"
-            detail="Han gennemgår hospitaler, apoteker, læger og politi i området."
+            detail="Han gennemgår hospitaler, læger, klinikker og politi i området."
           />
         )}
 
-        {!loading && items.length === 0 && (
-          <p>Ingen steder fundet. Prøv at øge afstanden.</p>
+        {!loading && error && (
+          <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-5 text-center">
+            <p className="text-sm text-destructive">{error}</p>
+            <button
+              type="button"
+              onClick={() => setReloadKey((key) => key + 1)}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Prøv igen
+            </button>
+          </div>
         )}
 
-        <div className="space-y-4">
-          {items.slice(0, 15).map((item) => {
-            const phone = extractPhone(item.tags);
+        {!loading && !error && items.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-border p-8 text-center">
+            <p className="font-semibold">Ingen steder fundet</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Prøv en anden kategori eller en større afstand.
+            </p>
+          </div>
+        )}
 
-            return (
-              <div key={item.id} className="rounded-xl border p-3 space-y-2">
-                <PlaceCard element={item} />
+        {!loading && !error && items.length > 0 && (
+          <div className="space-y-4">
+            <p className="px-1 text-sm font-semibold">
+              {items.length} steder fundet
+            </p>
+            {items.slice(0, 15).map((item) => {
+              const phone = extractPhone(item.tags);
+              const coords = getCoordinates(item);
+              const destination = coords
+                ? `${coords.lat},${coords.lon}`
+                : item.tags?.name || trip.destination;
 
-                <div className="flex gap-2 flex-wrap">
-                  {phone && (
+              return (
+                <div key={`${item.type}-${item.id}`} className="rounded-2xl border border-border p-3">
+                  <PlaceCard element={item} />
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {phone && (
+                      <a
+                        href={`tel:${phone}`}
+                        className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-3 py-2 text-sm font-semibold text-white"
+                      >
+                        <Phone className="h-4 w-4" />
+                        Ring
+                      </a>
+                    )}
                     <a
-                      href={`tel:${phone}`}
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-green-600 text-white text-sm"
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 rounded-xl bg-primary/10 px-3 py-2 text-sm font-semibold text-primary"
                     >
-                      <Phone className="h-4 w-4" />
-                      Ring
+                      <MapPin className="h-4 w-4" />
+                      Vis rute
                     </a>
-                  )}
-
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-muted text-sm"
-                  >
-                    <MapPin className="h-4 w-4" />
-                    Rute
-                  </a>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-
-      </main>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-// ======================================================
-// AFSNIT 07 – Export
-// ======================================================
 export default function Help() {
   return (
     <TripGuard>
