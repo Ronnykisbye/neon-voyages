@@ -120,7 +120,7 @@ export function StayResultCard({ place: initialPlace, rank }: StayResultCardProp
                 </span>
               </div>
             ) : (
-              <p className="mt-3 text-sm text-muted-foreground">Ingen offentlig score i den gratis reservekilde</p>
+              <p className="mt-3 text-sm text-muted-foreground">Tryk her for at se score og anmeldelser på Google</p>
             )}
 
             {place.category === "restaurant" && place.foodDescription && (

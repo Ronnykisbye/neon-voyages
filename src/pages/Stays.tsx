@@ -115,7 +115,7 @@ export default function Stays() {
         setNotice(
           category === "hotel" && hotelStars !== "all"
             ? "Hotelklasse er ikke det samme som Google-score. Du ser kun hoteller, hvor den officielle klasse er registreret i OpenStreetMap."
-            : "Google-delen afprøves først, når den beskyttede API-nøgle er tilsluttet. Du ser OpenStreetMap-resultater nu."
+            : "Stederne findes via OpenStreetMap. Tryk på et resultat for at se score og anmeldelser på Google."
         );
       }
 
@@ -253,7 +253,7 @@ export default function Stays() {
 
             <p className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
               <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              Google-score vises, når Google-kilden er tilgængelig. OpenStreetMap tager automatisk over ved driftsstop.
+              Stederne findes via OpenStreetMap. Åbn et resultat for at se score og anmeldelser på Google.
             </p>
           </aside>
 
