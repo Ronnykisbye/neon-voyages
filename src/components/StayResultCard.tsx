@@ -8,6 +8,7 @@ import {
   MapPin,
   Navigation,
   Phone,
+  Share2,
   Star,
 } from "lucide-react";
 import { getGooglePlaceDetails, type PlaceResult } from "@/services/places";
@@ -51,6 +52,28 @@ export function StayResultCard({ place: initialPlace, rank }: StayResultCardProp
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [shareLabel, setShareLabel] = useState("Del sted");
+
+  const handleShare = async () => {
+    const shareData = {
+      title: place.name,
+      text: [place.name, place.address].filter(Boolean).join(" · "),
+      url: place.googleMapsUrl,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(place.googleMapsUrl);
+        setShareLabel("Link kopieret");
+        window.setTimeout(() => setShareLabel("Del sted"), 2200);
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setShareLabel("Kunne ikke dele");
+      window.setTimeout(() => setShareLabel("Del sted"), 2200);
+    }
+  };
 
   const handleToggle = async () => {
     const next = !expanded;
@@ -181,6 +204,9 @@ export function StayResultCard({ place: initialPlace, rank }: StayResultCardProp
           )}
 
           <div className="mt-5 flex flex-wrap gap-2">
+            <button type="button" className="stay-action" onClick={handleShare}>
+              <Share2 className="h-4 w-4" /> {shareLabel}
+            </button>
             <a className="stay-action" href={place.googleMapsUrl} target="_blank" rel="noreferrer">
               <Navigation className="h-4 w-4" /> Se score og anmeldelser på Google
             </a>
