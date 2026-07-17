@@ -14,6 +14,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { PacmanLoader } from "@/components/PacmanLoader";
 import { NeonCard } from "@/components/ui/NeonCard";
 import { NeonButton } from "@/components/ui/NeonButton";
 import { TripGuard } from "@/components/TripGuard";
@@ -134,7 +135,12 @@ function WeatherContent() {
       <PageHeader title="Vejret" subtitle={trip.destination} />
 
       <main className="flex-1 space-y-4 pb-6">
-        {loading && <p className="text-muted-foreground">Henter vejr…</p>}
+        {loading && (
+          <PacmanLoader
+            title="Pac-Man henter vejrudsigten…"
+            detail="Han samler de nyeste vejrdata for din destination."
+          />
+        )}
 
         {!loading && error && (
           <NeonCard variant="accent">
