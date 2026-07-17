@@ -9,6 +9,7 @@ import { useTrip } from "@/context/TripContext";
 import { queryOverpass } from "@/services/overpass";
 
 import SearchControls from "@/components/SearchControls";
+import { PacmanLoader } from "@/components/PacmanLoader";
 import { PlaceCard } from "@/components/PlaceCard";
 import { TripGuard } from "@/components/TripGuard";
 
@@ -56,6 +57,7 @@ function HelpContent() {
   const [radiusKm, setRadiusKm] = useState(6);
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const hasLocation = Boolean(trip?.location?.lat && trip?.location?.lon);
 
@@ -67,15 +69,21 @@ function HelpContent() {
 
     const fetchData = async () => {
       setLoading(true);
+      setError(null);
 
       try {
         const { lat, lon } = trip.location;
-        const filters = OSM_FILTERS[type].join("");
+        const searchClauses = OSM_FILTERS[type]
+          .map(
+            (filter) =>
+              `nwr(around:${radiusKm * 1000},${lat},${lon})${filter};`
+          )
+          .join("\n");
 
         const query = `
           [out:json][timeout:25];
           (
-            nwr(around:${radiusKm * 1000},${lat},${lon})${filters};
+            ${searchClauses}
           );
           out center tags;
         `;
@@ -84,6 +92,7 @@ function HelpContent() {
         setItems(res?.data || []);
       } catch {
         setItems([]);
+        setError("Hjælpesøgningen kunne ikke gennemføres. Prøv igen om et øjeblik.");
       } finally {
         setLoading(false);
       }
@@ -192,7 +201,16 @@ function HelpContent() {
           />
         )}
 
-        {!loading && items.length === 0 && (
+        {!loading && error && (
+          <div
+            role="alert"
+            className="rounded-xl border border-red-400/50 bg-red-500/10 p-4 text-sm text-foreground"
+          >
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && items.length === 0 && (
           <p>Ingen steder fundet. Prøv at øge afstanden.</p>
         )}
 
