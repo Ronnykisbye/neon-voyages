@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BedDouble, LocateFixed, MapPin, Search, Utensils } from "lucide-react";
+import { BedDouble, BookmarkCheck, LocateFixed, MapPin, Search, Utensils } from "lucide-react";
 import { DestinationInput } from "@/components/DestinationInput";
 import { PageHeader } from "@/components/PageHeader";
 import { StayResultCard } from "@/components/StayResultCard";
@@ -8,6 +8,7 @@ import { useTrip } from "@/context/TripContext";
 import type { LocationResult } from "@/services/geocoding";
 import {
   hasGooglePlacesProxy,
+  distanceBetweenMeters,
   searchGooglePlaces,
   searchOpenStreetMapPlaces,
   type PlaceResult,
@@ -18,12 +19,14 @@ import { FOOD_TYPES, type FoodType } from "@/data/foodTypes";
 import { PacmanLoader } from "@/components/PacmanLoader";
 import { HOTEL_STAR_OPTIONS, type HotelStars } from "@/data/hotelStars";
 import { APP_VERSION } from "@/config/appVersion";
+import { useSavedPlaces } from "@/hooks/useSavedPlaces";
 
 const RADII = [3, 5, 10] as const;
 const MINIMUM_LOADER_TIME_MS = 1400;
 
 export default function Stays() {
   const { trip } = useTrip();
+  const { places: savedPlaces } = useSavedPlaces();
   const [category, setCategory] = useState<StayCategory>("restaurant");
   const [radiusKm, setRadiusKm] = useState<(typeof RADII)[number]>(5);
   const [foodType, setFoodType] = useState<FoodType>("all");
@@ -39,6 +42,19 @@ export default function Stays() {
   const [notice, setNotice] = useState<string | null>(null);
   const googleReady = useMemo(() => hasGooglePlacesProxy(), []);
   const selectedFoodLabel = FOOD_TYPES.find((type) => type.id === foodType)?.label;
+  const savedForCategory = savedPlaces.filter((place) => place.category === category);
+
+  const showSavedPlace = (id: string) => {
+    const saved = savedForCategory.find((place) => place.id === id);
+    if (!saved) return;
+    const distanceMeters = location
+      ? distanceBetweenMeters(location.lat, location.lon, saved.lat, saved.lon)
+      : saved.distanceMeters;
+    setResults([{ ...saved, distanceMeters }]);
+    setVisibleCount(10);
+    setError(null);
+    setNotice("Du viser et tidligere gemt sted. Det kan åbnes i Google eller deles med familien.");
+  };
 
   const surpriseMe = () => {
     const choices = FOOD_TYPES.filter((type) => type.id !== "all");
@@ -163,6 +179,26 @@ export default function Stays() {
                 </button>
               ))}
             </div>
+
+            {savedForCategory.length > 0 && (
+              <section className="space-y-2">
+                <label htmlFor="saved-place" className="flex items-center gap-2 text-sm font-semibold">
+                  <BookmarkCheck className="h-4 w-4 text-primary" />
+                  {category === "hotel" ? "Mine gemte hoteller" : "Mine gemte restauranter"}
+                </label>
+                <select
+                  id="saved-place"
+                  value=""
+                  onChange={(event) => showSavedPlace(event.target.value)}
+                  className="min-h-12 w-full rounded-xl border border-primary/30 bg-primary/5 px-3 text-sm font-semibold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="" disabled>Vælg et tidligere gemt sted…</option>
+                  {savedForCategory.map((place) => (
+                    <option key={place.id} value={place.id}>{place.name}</option>
+                  ))}
+                </select>
+              </section>
+            )}
 
             <section className="space-y-2">
               <label className="text-sm font-semibold">Hvor vil du søge?</label>
