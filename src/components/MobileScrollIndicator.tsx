@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 export function MobileScrollIndicator() {
   const [progress, setProgress] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
+  const [isScrollable, setIsScrollable] = useState(false);
+  const [atBottom, setAtBottom] = useState(false);
 
   useEffect(() => {
     const update = () => {
@@ -11,7 +12,8 @@ export function MobileScrollIndicator() {
       const maxScroll = Math.max(0, root.scrollHeight - window.innerHeight);
       const nextProgress = maxScroll > 0 ? Math.min(1, window.scrollY / maxScroll) : 0;
       setProgress(nextProgress);
-      setHasMore(maxScroll > 80 && nextProgress < 0.985);
+      setIsScrollable(maxScroll > 80);
+      setAtBottom(nextProgress >= 0.985);
     };
 
     const resizeObserver = new ResizeObserver(update);
@@ -27,20 +29,30 @@ export function MobileScrollIndicator() {
     };
   }, []);
 
-  if (!hasMore) return null;
+  if (!isScrollable) return null;
+
+  const label = atBottom ? "Tilbage til toppen" : "Der er mere indhold nedenunder. Rul ned.";
 
   return (
     <button
       type="button"
       className="mobile-scroll-indicator"
-      onClick={() => window.scrollBy({ top: window.innerHeight * 0.72, behavior: "smooth" })}
-      aria-label="Der er mere indhold nedenunder. Rul ned."
-      title="Mere nedenunder"
+      onClick={() =>
+        atBottom
+          ? window.scrollTo({ top: 0, behavior: "smooth" })
+          : window.scrollBy({ top: window.innerHeight * 0.72, behavior: "smooth" })
+      }
+      aria-label={label}
+      title={label}
     >
       <span className="mobile-scroll-indicator__track" aria-hidden="true">
         <span className="mobile-scroll-indicator__thumb" style={{ top: `${progress * 72}%` }} />
       </span>
-      <ChevronDown className="mobile-scroll-indicator__arrow" aria-hidden="true" />
+      {atBottom ? (
+        <ChevronUp className="mobile-scroll-indicator__arrow" aria-hidden="true" />
+      ) : (
+        <ChevronDown className="mobile-scroll-indicator__arrow" aria-hidden="true" />
+      )}
     </button>
   );
 }

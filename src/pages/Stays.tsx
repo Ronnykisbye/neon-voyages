@@ -268,7 +268,7 @@ export default function Stays() {
               </p>
             </div>
 
-            {notice && <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm">{notice}</div>}
+            {notice && <div className="rounded-2xl border border-primary/30 bg-primary/10 p-4 text-sm">{notice}</div>}
             {error && <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>}
 
             {loading && (
@@ -279,7 +279,7 @@ export default function Stays() {
               <>
                 <div className="flex items-center justify-between px-1">
                   <p className="font-semibold">
-                    {results.length === 100 ? "Viser de 100 nærmeste steder" : `${results.length} steder fundet`}
+                    {results.length} fundet · viser {Math.min(visibleCount, results.length)}
                     {category === "restaurant" && foodType !== "all" ? ` · ${selectedFoodLabel}` : ""}
                   </p>
                   <p className="text-xs text-muted-foreground">Sorteret efter afstand</p>
@@ -291,7 +291,7 @@ export default function Stays() {
                 </div>
                 {visibleCount < results.length && (
                   <NeonButton variant="secondary" className="w-full" onClick={() => setVisibleCount((count) => count + 10)}>
-                    Vis 10 mere
+                    Vis 10 mere ({results.length - visibleCount} tilbage)
                   </NeonButton>
                 )}
               </>
