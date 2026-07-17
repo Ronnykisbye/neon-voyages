@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { TripProvider } from "@/context/TripContext";
 
 import GlobalLoadingIndicator from "@/components/GlobalLoadingIndicator";
+import { MobileScrollIndicator } from "@/components/MobileScrollIndicator";
 
 import Index from "./pages/Index";
 import Menu from "./pages/Menu";
@@ -33,6 +34,7 @@ const App = () => (
           <Sonner />
 
           <GlobalLoadingIndicator />
+          <MobileScrollIndicator />
 
           <HashRouter>
             <Routes>
