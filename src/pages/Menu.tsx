@@ -18,6 +18,7 @@ import {
   Trash2,
   BedDouble,
   Download,
+  Bookmark,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
@@ -43,6 +44,13 @@ import {
 // AFSNIT 01 – Menu items
 // ============================================================================
 const menuItems = [
+  {
+    icon: <Bookmark className="h-6 w-6" />,
+    label: "Gemte steder",
+    description: "Dine hoteller og restauranter – også offline",
+    to: "/saved-places",
+    variant: "secondary" as const,
+  },
   {
     icon: <BedDouble className="h-6 w-6" />,
     label: "Hoteller & restauranter",
