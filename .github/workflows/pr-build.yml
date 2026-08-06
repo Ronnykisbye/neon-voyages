@@ -1,6 +1,9 @@
 name: Validate Pull Requests
 
 on:
+  push:
+    branches:
+      - feature/toilet-nearby
   pull_request:
     branches:
       - main
