@@ -15,6 +15,7 @@ import { useLocation } from "react-router-dom";
 
 import { PageHeader } from "@/components/PageHeader";
 import { PacmanLoader } from "@/components/PacmanLoader";
+import { ToiletAddress } from "@/components/ToiletAddress";
 import { NeonButton } from "@/components/ui/NeonButton";
 import { NeonCard } from "@/components/ui/NeonCard";
 import { useTrip } from "@/context/TripContext";
@@ -55,14 +56,6 @@ function formatDistance(meters: number): string {
 
 function walkingMinutes(meters: number): number {
   return Math.max(1, Math.round(meters / 80));
-}
-
-function buildAddress(tags: Record<string, string> = {}): string | null {
-  const street = tags["addr:street"];
-  const number = tags["addr:housenumber"];
-  const city = tags["addr:city"] || tags["addr:place"];
-  const parts = [street && [street, number].filter(Boolean).join(" "), city].filter(Boolean);
-  return parts.length ? parts.join(", ") : null;
 }
 
 function tagIsYes(value?: string): boolean {
@@ -127,28 +120,32 @@ export default function ToiletNearby() {
     }
   }, [locateMe, location.search]);
 
-  const fetchToilets = useCallback(async (force = false) => {
-    if (!position) return;
+  const fetchToilets = useCallback(
+    async (force = false) => {
+      if (!position) return;
 
-    const cacheKey = `toilets_${position.lat.toFixed(3)}_${position.lon.toFixed(3)}`;
-    if (!force) {
-      try {
-        const raw = localStorage.getItem(cacheKey);
-        if (raw) {
-          const cached = JSON.parse(raw) as { timestamp: number; data: OverpassElement[] };
-          if (Date.now() - cached.timestamp < CACHE_TTL_MS) {
-            setItems(cached.data);
-            return;
+      const cacheKey = `toilets_${position.lat.toFixed(3)}_${position.lon.toFixed(3)}`;
+      if (!force) {
+        try {
+          const raw = localStorage.getItem(cacheKey);
+          if (raw) {
+            const cached = JSON.parse(raw) as {
+              timestamp: number;
+              data: OverpassElement[];
+            };
+            if (Date.now() - cached.timestamp < CACHE_TTL_MS) {
+              setItems(cached.data);
+              return;
+            }
           }
+        } catch {
+          // Cachefejl må aldrig blokere søgningen.
         }
-      } catch {
-        // Cachefejl må aldrig blokere søgningen.
       }
-    }
 
-    setLoading(true);
-    setError(null);
-    const query = `
+      setLoading(true);
+      setError(null);
+      const query = `
 [out:json][timeout:25];
 (
   nwr(around:${SEARCH_RADIUS_METERS},${position.lat},${position.lon})["amenity"="toilets"];
@@ -156,25 +153,27 @@ export default function ToiletNearby() {
 out center tags;
 `;
 
-    const result = await queryOverpass(query);
-    setLoading(false);
+      const result = await queryOverpass(query);
+      setLoading(false);
 
-    if (!result.data) {
-      setItems([]);
-      setError(result.error || "Toiletterne kunne ikke hentes lige nu.");
-      return;
-    }
+      if (!result.data) {
+        setItems([]);
+        setError(result.error || "Toiletterne kunne ikke hentes lige nu.");
+        return;
+      }
 
-    setItems(result.data);
-    try {
-      localStorage.setItem(
-        cacheKey,
-        JSON.stringify({ timestamp: Date.now(), data: result.data })
-      );
-    } catch {
-      // Appen virker stadig uden cache.
-    }
-  }, [position]);
+      setItems(result.data);
+      try {
+        localStorage.setItem(
+          cacheKey,
+          JSON.stringify({ timestamp: Date.now(), data: result.data })
+        );
+      } catch {
+        // Appen virker stadig uden cache.
+      }
+    },
+    [position]
+  );
 
   useEffect(() => {
     void fetchToilets();
@@ -212,7 +211,11 @@ out center tags;
 
   return (
     <div className="min-h-screen px-4 py-2 max-w-lg mx-auto animate-fade-in">
-      <PageHeader title="Toilet nær mig" showBack backTo={trip.destination ? "/menu" : "/"} />
+      <PageHeader
+        title="Toilet nær mig"
+        showBack
+        backTo={trip.destination ? "/menu" : "/"}
+      />
 
       <main className="space-y-4 pb-8">
         <NeonCard variant="glow">
@@ -222,16 +225,25 @@ out center tags;
                 <Toilet className="h-7 w-7 text-primary" />
               </div>
               <div>
-                <h2 className="text-lg font-bold">Find nærmeste offentlige toilet</h2>
+                <h2 className="text-lg font-bold">
+                  Find nærmeste offentlige toilet
+                </h2>
                 <p className="text-sm text-muted-foreground">
-                  Resultaterne kommer fra OpenStreetMap. Manglende oplysninger vises som ukendte – appen gætter aldrig.
+                  Resultaterne kommer fra OpenStreetMap. Manglende oplysninger
+                  vises som ukendte – appen gætter aldrig.
                 </p>
               </div>
             </div>
 
-            <NeonButton className="w-full min-h-12" onClick={locateMe} disabled={locating}>
+            <NeonButton
+              className="w-full min-h-12"
+              onClick={locateMe}
+              disabled={locating}
+            >
               <LocateFixed className="h-5 w-5 mr-2" />
-              {locating ? "Finder din position…" : "Find toiletter ved min position"}
+              {locating
+                ? "Finder din position…"
+                : "Find toiletter ved min position"}
             </NeonButton>
 
             <p className="text-xs text-center text-muted-foreground">
@@ -276,15 +288,23 @@ out center tags;
 
         {!position && !loading && !error && (
           <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
-            Tryk på “Find toiletter ved min position”. Du kan bruge toilet-funktionen uden først at oprette en rejse.
+            Tryk på “Find toiletter ved min position”. Du kan bruge
+            toilet-funktionen uden først at oprette en rejse.
           </div>
         )}
 
         {!loading && error && (
-          <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 space-y-3">
+          <div
+            role="alert"
+            className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 space-y-3"
+          >
             <p className="text-sm">{error}</p>
             {position && (
-              <NeonButton variant="secondary" size="sm" onClick={() => void fetchToilets(true)}>
+              <NeonButton
+                variant="secondary"
+                size="sm"
+                onClick={() => void fetchToilets(true)}
+              >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Prøv søgning igen
               </NeonButton>
@@ -294,70 +314,114 @@ out center tags;
 
         {position && !loading && !error && results.length === 0 && (
           <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
-            Ingen toiletter matcher filtrene inden for 5 km. Slå et filter fra, eller prøv din aktuelle position.
+            Ingen toiletter matcher filtrene inden for 5 km. Slå et filter fra,
+            eller prøv din aktuelle position.
           </div>
         )}
 
         <div className="space-y-3">
-          {results.slice(0, 30).map(({ element, position: toiletPosition, distanceMeters: distance }) => {
-            const tags = element.tags || {};
-            const name = tags.name || tags.operator || "Offentligt toilet";
-            const address = buildAddress(tags);
-            const googlePlace = `https://www.google.com/maps/search/?api=1&query=${toiletPosition.lat},${toiletPosition.lon}`;
-            const googleRoute = `https://www.google.com/maps/dir/?api=1&destination=${toiletPosition.lat},${toiletPosition.lon}`;
-            const osm = `https://www.openstreetmap.org/?mlat=${toiletPosition.lat}&mlon=${toiletPosition.lon}#map=18/${toiletPosition.lat}/${toiletPosition.lon}`;
+          {results
+            .slice(0, 30)
+            .map(
+              ({
+                element,
+                position: toiletPosition,
+                distanceMeters: distance,
+              }) => {
+                const tags = element.tags || {};
+                const name =
+                  tags.name || tags.operator || "Offentligt toilet";
+                const googlePlace = `https://www.google.com/maps/search/?api=1&query=${toiletPosition.lat},${toiletPosition.lon}`;
+                const googleRoute = `https://www.google.com/maps/dir/?api=1&destination=${toiletPosition.lat},${toiletPosition.lon}`;
+                const osm = `https://www.openstreetmap.org/?mlat=${toiletPosition.lat}&mlon=${toiletPosition.lon}#map=18/${toiletPosition.lat}/${toiletPosition.lon}`;
 
-            return (
-              <NeonCard key={`${element.type}-${element.id}`}>
-                <div className="space-y-3">
-                  <div className="flex justify-between gap-3">
-                    <div>
-                      <h3 className="font-bold">{name}</h3>
-                      <p className="text-sm text-primary font-medium">
-                        {formatDistance(distance)} · ca. {walkingMinutes(distance)} min. gang
-                      </p>
+                return (
+                  <NeonCard key={`${element.type}-${element.id}`}>
+                    <div className="space-y-3">
+                      <div className="flex justify-between gap-3">
+                        <div>
+                          <h3 className="font-bold">{name}</h3>
+                          <p className="text-sm text-primary font-medium">
+                            {formatDistance(distance)} · ca. {walkingMinutes(distance)}
+                            min. gang
+                          </p>
+                        </div>
+                        <MapPin className="h-5 w-5 text-primary shrink-0" />
+                      </div>
+
+                      <ToiletAddress
+                        lat={toiletPosition.lat}
+                        lon={toiletPosition.lon}
+                        tags={tags}
+                      />
+
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <span className="rounded-full bg-muted px-2.5 py-1">
+                          Pris: {tags.fee === "no"
+                            ? "gratis"
+                            : tags.fee === "yes"
+                              ? "betaling"
+                              : "ukendt"}
+                        </span>
+                        <span className="rounded-full bg-muted px-2.5 py-1">
+                          Handicap: {tagIsYes(tags.wheelchair)
+                            ? "ja"
+                            : tags.wheelchair === "no"
+                              ? "nej"
+                              : "ukendt"}
+                        </span>
+                        <span className="rounded-full bg-muted px-2.5 py-1">
+                          Puslebord: {tagIsYes(tags.baby_changing)
+                            ? "ja"
+                            : tags.baby_changing === "no"
+                              ? "nej"
+                              : "ukendt"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Clock3 className="h-4 w-4" />
+                        <span>
+                          {tags.opening_hours || "Åbningstider ukendt"}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <a
+                          href={googlePlace}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border bg-card px-2 text-xs font-medium"
+                        >
+                          <ExternalLink className="h-4 w-4" /> Google
+                        </a>
+                        <a
+                          href={googleRoute}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg bg-primary px-2 text-xs font-medium text-primary-foreground"
+                        >
+                          <Navigation className="h-4 w-4" /> Rute
+                        </a>
+                        <a
+                          href={osm}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border bg-card px-2 text-xs font-medium"
+                        >
+                          <MapPin className="h-4 w-4" /> OSM
+                        </a>
+                      </div>
                     </div>
-                    <MapPin className="h-5 w-5 text-primary shrink-0" />
-                  </div>
-
-                  {address && <p className="text-sm text-muted-foreground">{address}</p>}
-
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="rounded-full bg-muted px-2.5 py-1">
-                      Pris: {tags.fee === "no" ? "gratis" : tags.fee === "yes" ? "betaling" : "ukendt"}
-                    </span>
-                    <span className="rounded-full bg-muted px-2.5 py-1">
-                      Handicap: {tagIsYes(tags.wheelchair) ? "ja" : tags.wheelchair === "no" ? "nej" : "ukendt"}
-                    </span>
-                    <span className="rounded-full bg-muted px-2.5 py-1">
-                      Puslebord: {tagIsYes(tags.baby_changing) ? "ja" : tags.baby_changing === "no" ? "nej" : "ukendt"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock3 className="h-4 w-4" />
-                    <span>{tags.opening_hours || "Åbningstider ukendt"}</span>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    <a href={googlePlace} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border bg-card px-2 text-xs font-medium">
-                      <ExternalLink className="h-4 w-4" /> Google
-                    </a>
-                    <a href={googleRoute} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg bg-primary px-2 text-xs font-medium text-primary-foreground">
-                      <Navigation className="h-4 w-4" /> Rute
-                    </a>
-                    <a href={osm} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border bg-card px-2 text-xs font-medium">
-                      <MapPin className="h-4 w-4" /> OSM
-                    </a>
-                  </div>
-                </div>
-              </NeonCard>
-            );
-          })}
+                  </NeonCard>
+                );
+              }
+            )}
         </div>
 
         <p className="text-center text-xs text-muted-foreground">
-          Kilde: OpenStreetMap-bidragsydere. Kontrollér skiltning og adgang på stedet.
+          Kilde: OpenStreetMap-bidragsydere. Kontrollér skiltning og adgang på
+          stedet.
         </p>
       </main>
     </div>
