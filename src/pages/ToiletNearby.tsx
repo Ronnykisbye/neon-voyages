@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Accessibility,
   Baby,
@@ -11,10 +11,10 @@ import {
   RefreshCw,
   Toilet,
 } from "lucide-react";
+import { useLocation } from "react-router-dom";
 
 import { PageHeader } from "@/components/PageHeader";
 import { PacmanLoader } from "@/components/PacmanLoader";
-import { TripGuard } from "@/components/TripGuard";
 import { NeonButton } from "@/components/ui/NeonButton";
 import { NeonCard } from "@/components/ui/NeonCard";
 import { useTrip } from "@/context/TripContext";
@@ -69,8 +69,11 @@ function tagIsYes(value?: string): boolean {
   return value === "yes" || value === "designated";
 }
 
-function ToiletNearbyContent() {
+export default function ToiletNearby() {
   const { trip } = useTrip();
+  const location = useLocation();
+  const autoLocateStarted = useRef(false);
+
   const tripPosition = trip.location
     ? { lat: trip.location.lat, lon: trip.location.lon }
     : null;
@@ -87,7 +90,11 @@ function ToiletNearbyContent() {
 
   const locateMe = useCallback(() => {
     if (!navigator.geolocation) {
-      setError("Din browser understøtter ikke positionsdeling. Vi bruger rejsemålet i stedet.");
+      setError(
+        tripPosition
+          ? "Din browser understøtter ikke positionsdeling. Vi bruger rejsemålet i stedet."
+          : "Din browser understøtter ikke positionsdeling."
+      );
       return;
     }
 
@@ -102,11 +109,23 @@ function ToiletNearbyContent() {
       () => {
         setLocating(false);
         setUsingDeviceLocation(false);
-        setError("Positionen kunne ikke hentes. Tillad placering i browseren, eller brug rejsemålet.");
+        setError(
+          tripPosition
+            ? "Positionen kunne ikke hentes. Tillad placering i browseren, eller brug rejsemålet."
+            : "Positionen kunne ikke hentes. Tillad placering i browseren og prøv igen."
+        );
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 60_000 }
     );
-  }, []);
+  }, [tripPosition]);
+
+  useEffect(() => {
+    const shouldAutoLocate = new URLSearchParams(location.search).get("locate") === "1";
+    if (shouldAutoLocate && !autoLocateStarted.current) {
+      autoLocateStarted.current = true;
+      locateMe();
+    }
+  }, [locateMe, location.search]);
 
   const fetchToilets = useCallback(async (force = false) => {
     if (!position) return;
@@ -185,9 +204,15 @@ out center tags;
       .sort((a, b) => a.distanceMeters - b.distanceMeters);
   }, [babyOnly, freeOnly, items, position, wheelchairOnly]);
 
+  const searchLabel = usingDeviceLocation
+    ? "din aktuelle position"
+    : trip.destination
+      ? trip.destination
+      : "ingen position endnu";
+
   return (
     <div className="min-h-screen px-4 py-2 max-w-lg mx-auto animate-fade-in">
-      <PageHeader title="Toilet nær mig" showBack backTo="/menu" />
+      <PageHeader title="Toilet nær mig" showBack backTo={trip.destination ? "/menu" : "/"} />
 
       <main className="space-y-4 pb-8">
         <NeonCard variant="glow">
@@ -210,7 +235,7 @@ out center tags;
             </NeonButton>
 
             <p className="text-xs text-center text-muted-foreground">
-              Søger omkring {usingDeviceLocation ? "din aktuelle position" : trip.destination}.
+              Søger omkring {searchLabel}.
             </p>
           </div>
         </NeonCard>
@@ -249,17 +274,25 @@ out center tags;
           />
         )}
 
-        {!loading && error && (
-          <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 space-y-3">
-            <p className="text-sm">{error}</p>
-            <NeonButton variant="secondary" size="sm" onClick={() => void fetchToilets(true)}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Prøv igen
-            </NeonButton>
+        {!position && !loading && !error && (
+          <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
+            Tryk på “Find toiletter ved min position”. Du kan bruge toilet-funktionen uden først at oprette en rejse.
           </div>
         )}
 
-        {!loading && !error && results.length === 0 && (
+        {!loading && error && (
+          <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 space-y-3">
+            <p className="text-sm">{error}</p>
+            {position && (
+              <NeonButton variant="secondary" size="sm" onClick={() => void fetchToilets(true)}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Prøv søgning igen
+              </NeonButton>
+            )}
+          </div>
+        )}
+
+        {position && !loading && !error && results.length === 0 && (
           <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
             Ingen toiletter matcher filtrene inden for 5 km. Slå et filter fra, eller prøv din aktuelle position.
           </div>
@@ -328,13 +361,5 @@ out center tags;
         </p>
       </main>
     </div>
-  );
-}
-
-export default function ToiletNearby() {
-  return (
-    <TripGuard>
-      <ToiletNearbyContent />
-    </TripGuard>
   );
 }
