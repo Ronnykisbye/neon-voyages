@@ -8,6 +8,7 @@ import { TripProvider } from "@/context/TripContext";
 
 import GlobalLoadingIndicator from "@/components/GlobalLoadingIndicator";
 import { MobileScrollIndicator } from "@/components/MobileScrollIndicator";
+import { ToiletQuickMenu } from "@/components/ToiletQuickMenu";
 
 import Index from "./pages/Index";
 import Menu from "./pages/Menu";
@@ -22,6 +23,7 @@ import Help from "./pages/Help";
 import Install from "./pages/Install";
 import Stays from "./pages/Stays";
 import SavedPlaces from "./pages/SavedPlaces";
+import ToiletNearby from "./pages/ToiletNearby";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +40,7 @@ const App = () => (
           <MobileScrollIndicator />
 
           <HashRouter>
+            <ToiletQuickMenu />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/menu" element={<Menu />} />
@@ -49,6 +52,7 @@ const App = () => (
               <Route path="/markets" element={<Markets />} />
               <Route path="/transport" element={<Transport />} />
               <Route path="/help" element={<Help />} />
+              <Route path="/toilet-nearby" element={<ToiletNearby />} />
               <Route path="/install" element={<Install />} />
               <Route path="/stays" element={<Stays />} />
               <Route path="/saved-places" element={<SavedPlaces />} />

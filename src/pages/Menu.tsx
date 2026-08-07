@@ -19,6 +19,7 @@ import {
   BedDouble,
   Download,
   Bookmark,
+  Toilet,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
@@ -44,6 +45,13 @@ import {
 // AFSNIT 01 – Menu items
 // ============================================================================
 const menuItems = [
+  {
+    icon: <Toilet className="h-6 w-6" />,
+    label: "Toilet nær mig",
+    description: "Find nærmeste offentlige toilet hurtigt",
+    to: "/toilet-nearby",
+    variant: "accent" as const,
+  },
   {
     icon: <Bookmark className="h-6 w-6" />,
     label: "Gemte steder",
@@ -146,14 +154,8 @@ function MenuContent() {
 
   return (
     <div className="min-h-screen flex flex-col px-4 py-2 max-w-lg mx-auto animate-fade-in">
-      {/* =========================================================================
-          AFSNIT 03 – Header (APP NAVN)
-         ========================================================================= */}
       <PageHeader title="Neon Voyages" showBack={true} backTo="/" />
 
-      {/* =========================================================================
-          AFSNIT 04 – Trip Summary
-         ========================================================================= */}
       <NeonCard variant="glow" className="mb-6">
         <div className="flex items-center gap-4">
           <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -175,9 +177,6 @@ function MenuContent() {
         </div>
       </NeonCard>
 
-      {/* =========================================================================
-          AFSNIT 05 – Menu Grid
-         ========================================================================= */}
       <main className="flex-1 space-y-3 pb-6">
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
           Udforsk
@@ -194,9 +193,6 @@ function MenuContent() {
           />
         ))}
 
-        {/* =========================================================================
-            AFSNIT 06 – Reset Trip Button
-           ========================================================================= */}
         <div className="pt-4">
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -235,9 +231,6 @@ function MenuContent() {
   );
 }
 
-// ============================================================================
-// AFSNIT 07 – Export (TripGuard)
-// ============================================================================
 export default function Menu() {
   return (
     <TripGuard>
