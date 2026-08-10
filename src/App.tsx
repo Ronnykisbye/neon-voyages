@@ -8,7 +8,6 @@ import { TripProvider } from "@/context/TripContext";
 
 import GlobalLoadingIndicator from "@/components/GlobalLoadingIndicator";
 import { MobileScrollIndicator } from "@/components/MobileScrollIndicator";
-import { ToiletQuickMenu } from "@/components/ToiletQuickMenu";
 
 import Index from "./pages/Index";
 import Menu from "./pages/Menu";
@@ -40,7 +39,6 @@ const App = () => (
           <MobileScrollIndicator />
 
           <HashRouter>
-            <ToiletQuickMenu />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/menu" element={<Menu />} />
