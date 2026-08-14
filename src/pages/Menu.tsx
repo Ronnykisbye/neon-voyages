@@ -70,8 +70,8 @@ const menuItems = [
   {
     icon: <BedDouble className="h-6 w-6" />,
     label: "Hoteller & restauranter",
-    description: "Nærmeste steder, Google-score og anmeldelser",
-    to: "/stays",
+    description: "Søg steder eller åbn Trivago, Hotels.com, fly og kort",
+    to: "/travel-tools",
     variant: "accent" as const,
   },
   {
