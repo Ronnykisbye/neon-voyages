@@ -6,6 +6,7 @@ import {
   MapPin,
   Plane,
   Search,
+  Utensils,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -13,14 +14,15 @@ import { PageHeader } from "@/components/PageHeader";
 
 const groups = [
   {
-    title: "Overnatning",
-    description: "Sammenlign hoteller og find ledige værelser.",
+    title: "Hoteller & restauranter",
+    description: "Vælg restaurant og madtype i Neon Voyages, eller gå videre til en bookingtjeneste for hotel.",
     icon: BedDouble,
     links: [
-      { label: "Neon Voyages – hoteller & restauranter", href: "/stays", internal: true },
+      { label: "Restaurant – vælg madtype", href: "/stays", internal: true, kind: "restaurant" },
       { label: "Trivago", href: "https://www.trivago.dk/" },
       { label: "Hotels.com", href: "https://www.hotels.com/" },
       { label: "Booking.com", href: "https://www.booking.com/" },
+      { label: "Airbnb", href: "https://www.airbnb.dk/" },
     ],
   },
   {
@@ -73,7 +75,7 @@ export default function TravelTools() {
               <div>
                 <h1 className="text-2xl font-bold sm:text-3xl">Ét sted at starte rejsen fra</h1>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-                  Brug Neon Voyages som dit rejse-dashboard. Tryk på den tjeneste, du vil bruge, uden først at skulle lede efter den i browseren.
+                  Brug Neon Voyages som dit rejse-dashboard. Restaurant og hotel er samlet ét sted, og de øvrige rejsetjenester ligger lige nedenunder.
                 </p>
               </div>
             </div>
@@ -105,11 +107,18 @@ export default function TravelTools() {
                             key={link.label}
                             type="button"
                             onClick={() => navigate(link.href)}
-                            className="flex min-h-12 w-full items-center justify-between rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-left text-sm font-semibold text-foreground transition hover:-translate-y-0.5 hover:bg-primary/15"
+                            className="flex min-h-14 w-full items-center justify-between rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 to-accent/10 px-4 py-3 text-left text-sm font-bold text-foreground shadow-sm transition hover:-translate-y-0.5 hover:shadow-card"
                           >
-                            <span className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4 text-primary" />
-                              {link.label}
+                            <span className="flex items-center gap-3">
+                              <span className="rounded-xl bg-background/70 p-2 text-primary">
+                                <Utensils className="h-5 w-5" />
+                              </span>
+                              <span>
+                                <span className="block">{link.label}</span>
+                                <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                                  Åbner madtype-menuen og “Overrask mig”
+                                </span>
+                              </span>
                             </span>
                           </button>
                         );
