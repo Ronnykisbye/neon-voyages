@@ -21,6 +21,7 @@ import Transport from "./pages/Transport";
 import Help from "./pages/Help";
 import Install from "./pages/Install";
 import Stays from "./pages/Stays";
+import TravelTools from "./pages/TravelTools";
 import SavedPlaces from "./pages/SavedPlaces";
 import ToiletNearby from "./pages/ToiletNearby";
 import CarOvernight from "./pages/CarOvernight";
@@ -54,6 +55,7 @@ const App = () => (
               <Route path="/toilet-nearby" element={<ToiletNearby />} />
               <Route path="/car-overnight" element={<CarOvernight />} />
               <Route path="/install" element={<Install />} />
+              <Route path="/travel-tools" element={<TravelTools />} />
               <Route path="/stays" element={<Stays />} />
               <Route path="/saved-places" element={<SavedPlaces />} />
               <Route path="*" element={<NotFound />} />
