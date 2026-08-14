@@ -8,7 +8,6 @@ import {
   CloudSun,
   Landmark,
   Sparkles,
-  Utensils,
   Calendar as CalendarIcon,
   ShoppingBag,
   Bus,
@@ -70,7 +69,7 @@ const menuItems = [
   {
     icon: <BedDouble className="h-6 w-6" />,
     label: "Hoteller & restauranter",
-    description: "Søg steder eller åbn Trivago, Hotels.com, fly og kort",
+    description: "Find hotel, vælg madtype eller åbn bookingtjenester",
     to: "/travel-tools",
     variant: "accent" as const,
   },
@@ -94,13 +93,6 @@ const menuItems = [
     description: "Unikke oplevelser",
     to: "/hidden-gems",
     variant: "accent" as const,
-  },
-  {
-    icon: <Utensils className="h-6 w-6" />,
-    label: "Madguide",
-    description: "Måltider og lokale madtyper",
-    to: "/food",
-    variant: "primary" as const,
   },
   {
     icon: <CalendarIcon className="h-6 w-6" />,
