@@ -4,6 +4,7 @@ import { DestinationInput } from "@/components/DestinationInput";
 import { PageHeader } from "@/components/PageHeader";
 import { StayResultCard } from "@/components/StayResultCard";
 import { NeonButton } from "@/components/ui/NeonButton";
+import { HotelBookingLinks, HotelBookingMiniLinks } from "@/components/HotelBookingLinks";
 import { useTrip } from "@/context/TripContext";
 import type { LocationResult } from "@/services/geocoding";
 import {
@@ -168,7 +169,7 @@ export default function Stays() {
                 <button
                   key={item}
                   type="button"
-                  onClick={() => { setCategory(item); setResults([]); }}
+                  onClick={() => { setCategory(item); setResults([]); setNotice(null); setError(null); }}
                   className={cn(
                     "flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition",
                     category === item ? "bg-card text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"
@@ -247,20 +248,23 @@ export default function Stays() {
             )}
 
             {category === "hotel" && (
-              <section className="space-y-2">
-                <label htmlFor="hotel-stars" className="text-sm font-semibold">Hotelklasse</label>
-                <select
-                  id="hotel-stars"
-                  value={hotelStars}
-                  onChange={(event) => { setHotelStars(event.target.value as HotelStars); setResults([]); }}
-                  className="min-h-12 w-full rounded-xl border border-border bg-background px-3 text-sm font-semibold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-                >
-                  {HOTEL_STAR_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-                <p className="text-xs leading-relaxed text-muted-foreground">Hotelstjerner beskriver hotellets officielle klasse – ikke gæsternes Google-score.</p>
-              </section>
+              <>
+                <section className="space-y-2">
+                  <label htmlFor="hotel-stars" className="text-sm font-semibold">Hotelklasse</label>
+                  <select
+                    id="hotel-stars"
+                    value={hotelStars}
+                    onChange={(event) => { setHotelStars(event.target.value as HotelStars); setResults([]); }}
+                    className="min-h-12 w-full rounded-xl border border-border bg-background px-3 text-sm font-semibold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  >
+                    {HOTEL_STAR_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs leading-relaxed text-muted-foreground">Hotelstjerner beskriver hotellets officielle klasse – ikke gæsternes Google-score.</p>
+                </section>
+                <HotelBookingMiniLinks />
+              </>
             )}
 
             <section className="space-y-2">
@@ -284,12 +288,14 @@ export default function Stays() {
 
             <NeonButton size="lg" className="w-full" onClick={search} disabled={loading || !location}>
               <Search className="mr-2 h-5 w-5" />
-              {loading ? "Søger…" : `Find ${category === "hotel" ? "hoteller" : "restauranter"}`}
+              {loading ? "Søger…" : category === "hotel" ? "Søg i Neon Voyages" : "Find restauranter"}
             </NeonButton>
 
             <p className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
               <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              Stederne findes via OpenStreetMap. Åbn et resultat for at se score og anmeldelser på Google.
+              {category === "hotel"
+                ? "Neon Voyages-søgningen er et hurtigt, gratis alternativ. Brug bookingknapperne for pris og ledighed."
+                : "Stederne findes via OpenStreetMap. Åbn et resultat for at se score og anmeldelser på Google."}
             </p>
           </aside>
 
@@ -297,19 +303,21 @@ export default function Stays() {
             <div className="rounded-[2rem] bg-gradient-to-br from-primary/15 via-secondary/25 to-accent/10 p-5 sm:p-7">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Neon Voyages {APP_VERSION}</p>
               <h1 className="mt-2 text-2xl font-bold sm:text-4xl">
-                {category === "hotel" ? "Find et hotel, du kan stole på" : "Find det rigtige sted at spise"}
+                {category === "hotel" ? "Find det rigtige sted at bo" : "Find det rigtige sted at spise"}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-                Søg efter de nærmeste steder, sammenlign afstand og score, og åbn anmeldelserne før du vælger.
+                {category === "hotel"
+                  ? "Gå direkte videre til en stor bookingtjeneste, eller brug Neon Voyages som hurtigt alternativ."
+                  : "Vælg den type mad, du har lyst til, find steder i nærheden og åbn anmeldelserne før du vælger."}
               </p>
             </div>
+
+            {category === "hotel" && <HotelBookingLinks />}
 
             {notice && <div className="rounded-2xl border border-primary/30 bg-primary/10 p-4 text-sm">{notice}</div>}
             {error && <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>}
 
-            {loading && (
-              <PacmanLoader category={category} />
-            )}
+            {loading && <PacmanLoader category={category} />}
 
             {!loading && results.length > 0 && (
               <>
@@ -333,9 +341,15 @@ export default function Stays() {
               </>
             )}
 
-            {!loading && results.length === 0 && !error && (
+            {!loading && results.length === 0 && !error && category === "restaurant" && (
               <div className="rounded-[2rem] border border-dashed border-border p-10 text-center text-muted-foreground">
-                Vælg sted, afstand og kategori for at starte søgningen.
+                Vælg sted, afstand og hvilken type mad du har lyst til for at starte søgningen.
+              </div>
+            )}
+
+            {!loading && results.length === 0 && !error && category === "hotel" && (
+              <div className="rounded-[2rem] border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                Vil du bruge Neon Voyages' egen hotelsøgning? Vælg afstand til venstre og tryk <strong>Søg i Neon Voyages</strong>.
               </div>
             )}
 
