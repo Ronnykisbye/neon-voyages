@@ -20,6 +20,7 @@ import {
   Download,
   Bookmark,
   Toilet,
+  Car,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
@@ -51,6 +52,13 @@ const menuItems = [
     description: "Find nærmeste offentlige toilet hurtigt",
     to: "/toilet-nearby",
     variant: "accent" as const,
+  },
+  {
+    icon: <Car className="h-6 w-6" />,
+    label: "Overnat i bilen",
+    description: "Find rastepladser, stellpladser og steder med faciliteter",
+    to: "/car-overnight",
+    variant: "primary" as const,
   },
   {
     icon: <Bookmark className="h-6 w-6" />,

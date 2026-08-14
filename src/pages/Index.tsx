@@ -3,7 +3,7 @@
 // ============================================================================
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plane, MapPin, Toilet } from "lucide-react";
+import { Car, Plane, MapPin, Toilet } from "lucide-react";
 import { DestinationInput } from "@/components/DestinationInput";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { DaysStepper } from "@/components/DaysStepper";
@@ -211,6 +211,16 @@ const Index = () => {
           >
             <MapPin className="h-5 w-5 mr-2" />
             {gpsLoading ? "Finder GPS..." : "Brug min GPS (her og nu)"}
+          </NeonButton>
+
+          <NeonButton
+            variant="ghost"
+            size="lg"
+            className="w-full border border-primary/25"
+            onClick={() => navigate("/car-overnight")}
+          >
+            <Car className="h-5 w-5 mr-2" />
+            Find et sted at overnatte i bilen
           </NeonButton>
 
           {gpsError && <p className="text-sm text-destructive">{gpsError}</p>}
